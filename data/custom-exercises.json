@@ -1,0 +1,83 @@
+[
+  {
+    "id": "custom-neutral-grip-pull-up",
+    "nameEn": "Neutral Grip Pull-up",
+    "nameUk": "Підтягування нейтральним хватом",
+    "equipment": "body only",
+    "mechanic": "compound",
+    "primaryMuscles": ["back"],
+    "secondaryMuscles": ["biceps"]
+  },
+  {
+    "id": "custom-wide-grip-pull-up",
+    "nameEn": "Wide Grip Pull-up",
+    "nameUk": "Підтягування широким хватом",
+    "equipment": "body only",
+    "mechanic": "compound",
+    "primaryMuscles": ["back"],
+    "secondaryMuscles": ["biceps"]
+  },
+  {
+    "id": "custom-seated-dumbbell-shoulder-press",
+    "nameEn": "Seated Dumbbell Shoulder Press",
+    "nameUk": "Сидячий жим гантелей над головою",
+    "equipment": "dumbbell",
+    "mechanic": "compound",
+    "primaryMuscles": ["front_delts"],
+    "secondaryMuscles": ["triceps"]
+  },
+  {
+    "id": "custom-overhead-dumbbell-triceps-extension",
+    "nameEn": "Overhead Dumbbell Triceps Extension",
+    "nameUk": "Розгинання рук з гантеллю над головою",
+    "equipment": "dumbbell",
+    "mechanic": "isolation",
+    "primaryMuscles": ["triceps"],
+    "secondaryMuscles": []
+  },
+  {
+    "id": "custom-hip-abduction-machine",
+    "nameEn": "Hip Abduction Machine",
+    "nameUk": "Тренажер для відведення стегна",
+    "equipment": "machine",
+    "mechanic": "isolation",
+    "primaryMuscles": ["abductors"],
+    "secondaryMuscles": ["glutes"]
+  },
+  {
+    "id": "custom-incline-leg-press",
+    "nameEn": "Incline Leg Press",
+    "nameUk": "Похилий жим ногами",
+    "equipment": "machine",
+    "mechanic": "compound",
+    "primaryMuscles": ["quads"],
+    "secondaryMuscles": ["glutes"]
+  },
+  {
+    "id": "custom-resistance-band-curl",
+    "nameEn": "Resistance Band Curl",
+    "nameUk": "Згинання рук на біцепс з еспандером",
+    "equipment": "bands",
+    "mechanic": "isolation",
+    "primaryMuscles": ["biceps"],
+    "secondaryMuscles": []
+  },
+  {
+    "id": "custom-band-row",
+    "nameEn": "Band Row",
+    "nameUk": "Тяга еспандера до пояса",
+    "equipment": "bands",
+    "mechanic": "compound",
+    "primaryMuscles": ["back"],
+    "secondaryMuscles": ["biceps"]
+  },
+  {
+    "id": "custom-single-leg-calf-raise",
+    "nameEn": "Single-Leg Calf Raise",
+    "nameUk": "Підйом на носок однієї ноги",
+    "equipment": "body only",
+    "mechanic": "isolation",
+    "primaryMuscles": ["calves"],
+    "secondaryMuscles": []
+  }
+]

@@ -1,0 +1,75 @@
+/*
+ * Only the genuinely new visual pattern the engine tabs need on top of the
+ * app's existing exercise-card/exercise-modal system (App.css) — a 2-frame
+ * "GIF-like" flip between free-exercise-db's start/end demonstration images
+ * (see domain/exerciseLibrary/exerciseImages.ts). Everything else (cards,
+ * modal, chips) reuses App.css classes directly.
+ */
+.exercise-visual-flip {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 250px;
+}
+
+/* Compact variant for inline previews (e.g. the goal form's recommended-exercise preview) rather than the full modal-sized visual. */
+.exercise-visual-thumb {
+  max-width: 220px;
+  min-height: 140px;
+}
+
+.exercise-visual-thumb .exercise-visual-flip,
+.exercise-visual-thumb .exercise-visual-media,
+.exercise-visual-thumb .exercise-visual-placeholder {
+  min-height: 140px;
+}
+
+.exercise-visual-flip img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.exercise-visual-flip img:first-child {
+  animation: exercise-flip-a 2s steps(1, end) infinite;
+}
+
+.exercise-visual-flip img:last-child {
+  animation: exercise-flip-b 2s steps(1, end) infinite;
+}
+
+@keyframes exercise-flip-a {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes exercise-flip-b {
+  0%,
+  49% {
+    opacity: 0;
+  }
+  50%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exercise-visual-flip img {
+    animation: none;
+  }
+  .exercise-visual-flip img:first-child {
+    opacity: 1;
+  }
+  .exercise-visual-flip img:last-child {
+    opacity: 0;
+  }
+}

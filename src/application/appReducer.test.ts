@@ -94,4 +94,28 @@ describe('appReducer', () => {
     const result = appReducer(stateWithLog, { type: 'LOG_WORKOUT', workoutLog })
     expect(result.workoutLogs).toHaveLength(2)
   })
+
+  it('LOG_WORKOUT clears confirmedSessionInputs -- the next visit to План сесії should ask fresh', () => {
+    const stateWithConfirmedInputs: PersistedState = {
+      ...INITIAL_STATE,
+      confirmedSessionInputs: { availableMinutes: 45, noGymToday: false },
+    }
+    const workoutLog: WorkoutLog = { id: 'w1', completedAt: '2026-08-19T01:00:00.000Z', successful: true, exerciseLogs: [] }
+    const result = appReducer(stateWithConfirmedInputs, { type: 'LOG_WORKOUT', workoutLog })
+    expect(result.confirmedSessionInputs).toBeNull()
+  })
+
+  it('CONFIRM_SESSION_INPUTS sets it, and a later confirmation overwrites rather than merges (boundary condition)', () => {
+    const first = appReducer(INITIAL_STATE, {
+      type: 'CONFIRM_SESSION_INPUTS',
+      inputs: { availableMinutes: 45, noGymToday: false },
+    })
+    expect(first.confirmedSessionInputs).toEqual({ availableMinutes: 45, noGymToday: false })
+
+    const second = appReducer(first, {
+      type: 'CONFIRM_SESSION_INPUTS',
+      inputs: { availableMinutes: 20, noGymToday: true },
+    })
+    expect(second.confirmedSessionInputs).toEqual({ availableMinutes: 20, noGymToday: true })
+  })
 })

@@ -57,6 +57,7 @@ const SEEDED_STATE_WITH_ACTIVE_GOAL: PersistedState = {
   workoutLogs: [],
   weighIns: [],
   circumferenceMeasurements: [],
+  confirmedSessionInputs: null,
 }
 
 afterEach(() => {
@@ -145,7 +146,7 @@ describe('App smoke test', () => {
   )
 
   it(
-    'regression guard: visiting "План сесії" repeatedly never shows a blocking ' +
+    'regression guard: revisiting "План сесії" never shows a blocking ' +
       '"already in progress" message -- the exact scenario that broke ("I cant open again")',
     async () => {
       renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
@@ -153,11 +154,54 @@ describe('App smoke test', () => {
       for (let visit = 0; visit < 3; visit++) {
         fireEvent.click(screen.getByRole('button', { name: 'Головна' }))
         fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
-        expect(await screen.findByRole('heading', { name: "Before we assemble today's session" })).toBeTruthy()
-        fireEvent.click(screen.getByRole('button', { name: 'Assemble my session' }))
-        expect(await screen.findByText('Barbell Curl')).toBeTruthy()
         expect(screen.queryByText(/already in progress/i)).toBeNull()
+        expect(screen.queryByText('Discard this workout')).toBeNull()
       }
     },
   )
+
+  it(
+    "a casual revisit to План сесії (nav away and back) keeps today's confirmed plan " +
+      "instead of silently re-asking and possibly assembling a different one -- " +
+      'the follow-up bug report: "if i started it already, i shouldn\'t be able to start again with different time available"',
+    async () => {
+      renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
+
+      fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
+      expect(await screen.findByRole('heading', { name: "Before we assemble today's session" })).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Assemble my session' }))
+      expect(await screen.findByText('Barbell Curl')).toBeTruthy()
+
+      // Nav away and back, without deliberately choosing to change anything.
+      fireEvent.click(screen.getByRole('button', { name: 'Головна' }))
+      fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
+
+      // Straight to the already-confirmed plan -- no re-ask, no way to have
+      // accidentally landed on a different time budget.
+      expect(await screen.findByText('Barbell Curl')).toBeTruthy()
+      expect(screen.queryByRole('heading', { name: "Before we assemble today's session" })).toBeNull()
+
+      // The explicit override is still there for a deliberate change.
+      fireEvent.click(screen.getByRole('button', { name: 'Change time / location' }))
+      expect(await screen.findByRole('heading', { name: "Before we assemble today's session" })).toBeTruthy()
+    },
+  )
+
+  it("Завершити uses the same plan already confirmed on План сесії, and forgets it again once the workout is logged (ready to ask fresh for the next one)", async () => {
+    renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
+
+    fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Assemble my session' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Перейти до Завершити' }))
+
+    expect(await screen.findByText(/Using today's plan from План сесії/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Завершити тренування' }))
+    expect(await screen.findByText('Workout saved. Logging a fresh one below.')).toBeTruthy()
+
+    // confirmedSessionInputs was cleared by LOG_WORKOUT -- back on План сесії,
+    // it asks fresh for the next (now-unlogged) session rather than reusing
+    // the just-completed answer.
+    fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
+    expect(await screen.findByRole('heading', { name: "Before we assemble today's session" })).toBeTruthy()
+  })
 })

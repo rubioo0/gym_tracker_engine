@@ -43,4 +43,29 @@ describe('isPersistedState', () => {
     ).toBe(false)
   })
 
+  it('accepts a missing confirmedSessionInputs (backup exported before it existed), a null one, and a populated one', () => {
+    const base = {
+      profile: null,
+      goals: [],
+      specializationBlocks: [],
+      workoutLogs: [],
+      weighIns: [],
+      circumferenceMeasurements: [],
+    }
+    expect(isPersistedState(base)).toBe(true)
+    expect(isPersistedState({ ...base, confirmedSessionInputs: null })).toBe(true)
+    expect(isPersistedState({ ...base, confirmedSessionInputs: { availableMinutes: 45, noGymToday: false } })).toBe(true)
+  })
+
+  it('rejects a non-null, non-object confirmedSessionInputs (boundary condition)', () => {
+    const base = {
+      profile: null,
+      goals: [],
+      specializationBlocks: [],
+      workoutLogs: [],
+      weighIns: [],
+      circumferenceMeasurements: [],
+    }
+    expect(isPersistedState({ ...base, confirmedSessionInputs: 'not-an-object' })).toBe(false)
+  })
 })

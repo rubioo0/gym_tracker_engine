@@ -89,6 +89,13 @@ export function FinishSessionTab() {
     )
   }
 
+  // Prefer whatever the user already confirmed on "План сесії" — same plan,
+  // logged against, no risk of drifting from what they actually saw there.
+  // Falls back to a generous default (+ its own editable checkbox below)
+  // only when they came here without ever visiting that tab first.
+  const effectiveNoGymToday = state.confirmedSessionInputs?.noGymToday ?? noGymToday
+  const effectiveAvailableMinutes = state.confirmedSessionInputs?.availableMinutes ?? GENEROUS_MINUTES_FOR_LOGGING
+
   const completedSessionsInBlock = countSessionsInBlock(state.workoutLogs, active.block)
   const slots = assembleTodaysSession({
     focusMuscle: active.block.focusMuscle,
@@ -96,8 +103,8 @@ export function FinishSessionTab() {
     injuredMuscles: state.profile.injuredMuscles,
     sessionsPerWeek: state.profile.sessionsPerWeek,
     completedSessionsInBlock,
-    noGymToday,
-    availableMinutes: GENEROUS_MINUTES_FOR_LOGGING,
+    noGymToday: effectiveNoGymToday,
+    availableMinutes: effectiveAvailableMinutes,
   })
 
   function seedEdits(): EditableExerciseLog[] {
@@ -143,18 +150,22 @@ export function FinishSessionTab() {
         {justFinished ? <p className="note">Workout saved. Logging a fresh one below.</p> : null}
         <p className="muted">Focus: {active.block.focusMuscle}</p>
 
-        <label className="log-checkbox-field inline-field">
-          No gym today
-          <input
-            type="checkbox"
-            checked={noGymToday}
-            onChange={(e) => {
-              setNoGymToday(e.target.checked)
-              setEdits(null)
-              setJustFinished(false)
-            }}
-          />
-        </label>
+        {state.confirmedSessionInputs ? (
+          <p className="muted">Using today's plan from План сесії ({effectiveAvailableMinutes} min{effectiveNoGymToday ? ', no gym' : ''}).</p>
+        ) : (
+          <label className="log-checkbox-field inline-field">
+            No gym today
+            <input
+              type="checkbox"
+              checked={noGymToday}
+              onChange={(e) => {
+                setNoGymToday(e.target.checked)
+                setEdits(null)
+                setJustFinished(false)
+              }}
+            />
+          </label>
+        )}
 
         {currentEdits.map((log) => {
           const exercise = getExerciseById(log.exerciseId)

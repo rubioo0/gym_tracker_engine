@@ -19,13 +19,20 @@ const RENEWAL_MESSAGES: Record<GoalRenewalReason, string> = {
  * FinishSessionTab (Завершити), which independently recomputes its own
  * prescription — the two tabs are connected only by a plain navigation
  * button, never by a shared piece of state that could get stuck.
+ *
+ * The time/gym-access answer IS remembered (`state.confirmedSessionInputs`,
+ * cleared once a workout is actually logged) so a casual revisit — nav away
+ * and back, without deliberately choosing to change anything — keeps
+ * showing the same plan instead of silently re-asking and possibly
+ * assembling a different one. This is not a lock: "Change time / location"
+ * always remains available, and nothing here ever blocks the screen.
  */
 export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
-  const { state, loaded } = useEngineState()
+  const { state, dispatch, loaded } = useEngineState()
 
-  const [availableMinutes, setAvailableMinutes] = useState(45)
-  const [noGymToday, setNoGymToday] = useState(false)
-  const [inputsConfirmed, setInputsConfirmed] = useState(false)
+  const [editingInputs, setEditingInputs] = useState(false)
+  const [draftMinutes, setDraftMinutes] = useState(state.confirmedSessionInputs?.availableMinutes ?? 45)
+  const [draftNoGym, setDraftNoGym] = useState(state.confirmedSessionInputs?.noGymToday ?? false)
   const [openSlotIndex, setOpenSlotIndex] = useState<number | null>(null)
 
   if (!loaded) {
@@ -70,7 +77,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
     )
   }
 
-  if (!inputsConfirmed) {
+  if (!state.confirmedSessionInputs || editingInputs) {
     return (
       <section className="panel-grid">
         <article className="card">
@@ -80,16 +87,25 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
             <input
               type="number"
               min={1}
-              value={availableMinutes}
-              onChange={(e) => setAvailableMinutes(Number(e.target.value))}
+              value={draftMinutes}
+              onChange={(e) => setDraftMinutes(Number(e.target.value))}
             />
           </label>
           <label className="log-checkbox-field inline-field">
             No gym today
-            <input type="checkbox" checked={noGymToday} onChange={(e) => setNoGymToday(e.target.checked)} />
+            <input type="checkbox" checked={draftNoGym} onChange={(e) => setDraftNoGym(e.target.checked)} />
           </label>
           <div className="action-row">
-            <button type="button" onClick={() => setInputsConfirmed(true)}>
+            <button
+              type="button"
+              onClick={() => {
+                dispatch({
+                  type: 'CONFIRM_SESSION_INPUTS',
+                  inputs: { availableMinutes: draftMinutes, noGymToday: draftNoGym },
+                })
+                setEditingInputs(false)
+              }}
+            >
               Assemble my session
             </button>
           </div>
@@ -98,6 +114,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
     )
   }
 
+  const { availableMinutes, noGymToday } = state.confirmedSessionInputs
   const completedSessionsInBlock = countSessionsInBlock(state.workoutLogs, active.block)
   const slots = assembleTodaysSession({
     focusMuscle: active.block.focusMuscle,
@@ -113,7 +130,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
     <section className="panel-grid">
       <article className="card card-wide">
         <div className="action-row">
-          <button type="button" onClick={() => setInputsConfirmed(false)}>
+          <button type="button" onClick={() => setEditingInputs(true)}>
             Change time / location
           </button>
         </div>

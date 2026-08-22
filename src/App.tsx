@@ -30,7 +30,6 @@ import {
   getTemplateById,
 } from './domain/logic'
 import { appReducer } from './domain/reducer'
-import { SessionPlanPanel } from './components/session/SessionPlanPanel'
 import { ProgramCalendarView } from './components/calendar/ProgramCalendarView'
 import { StatsTab } from './components/stats/StatsTab'
 import { PlanEditorModal } from './components/PlanEditorModal'
@@ -63,7 +62,6 @@ type AppTab =
   | 'photos'
   | 'data'
   | 'engineSetup'
-  | 'engineToday'
 
 const tabs: { id: AppTab; label: string }[] = [
   { id: 'home', label: 'Головна' },
@@ -77,7 +75,6 @@ const tabs: { id: AppTab; label: string }[] = [
   { id: 'photos', label: 'Фото' },
   { id: 'data', label: 'Дані' },
   { id: 'engineSetup', label: 'Автопрофіль' },
-  { id: 'engineToday', label: 'Сьогодні' },
 ]
 
 const statusOrder: RunStatus[] = ['active', 'paused', 'completed', 'archived']
@@ -316,10 +313,6 @@ function App() {
 
   const lastWorkout = state.workoutLogs[0] ?? null
   const aiSettings = loadAISettings()
-
-  const hasManualRunOverride = Boolean(
-    state.selectedRunId && suggestedRun && state.selectedRunId !== suggestedRun.id,
-  )
 
   function handleTabChange(tab: AppTab): void {
     setActiveTab(tab)
@@ -1293,29 +1286,7 @@ function App() {
         </section>
       )}
 
-      {activeTab === 'session' && (
-        <section className="panel-grid">
-          <article className="card card-wide">
-            <SessionPlanPanel
-              plannedSession={plannedSession}
-              activeRuns={activeRuns}
-              selectedRun={selectedRun}
-              hasManualRunOverride={hasManualRunOverride}
-              showProgressionInsights={state.showProgressionInsights}
-              workoutLogs={state.workoutLogs}
-              onSelectRun={(runId) => {
-                dispatch({ type: 'setSelectedRun', runId })
-              }}
-              onResetToSuggestedRun={() => {
-                dispatch({ type: 'setSelectedRun', runId: null })
-              }}
-              onToggleProgressionInsights={(show) => {
-                dispatch({ type: 'setShowProgressionInsights', show })
-              }}
-            />
-          </article>
-        </section>
-      )}
+      {activeTab === 'session' && <TodayTab />}
 
       {activeTab === 'log' && (
         <section className="panel-grid">
@@ -1924,7 +1895,6 @@ function App() {
       )}
 
       {activeTab === 'engineSetup' && <SetupTab oldWorkoutLogs={state.workoutLogs} />}
-      {activeTab === 'engineToday' && <TodayTab />}
     </main>
 
     {editingTemplateId !== null && (

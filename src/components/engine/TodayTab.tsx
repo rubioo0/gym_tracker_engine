@@ -3,6 +3,8 @@ import { useEngineState } from './useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock } from '../../application/activeGoal'
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
+import { prescribeSession } from '../../application/sessionPrescription'
+import type { DraftExerciseLog } from '../../application/state'
 import { ExerciseDetailModal } from './ExerciseDetailModal'
 import './EngineTabs.css'
 
@@ -12,8 +14,8 @@ const RENEWAL_MESSAGES: Record<GoalRenewalReason, string> = {
   focusMuscleInjured: 'Your focus muscle is marked as injured.',
 }
 
-export function TodayTab() {
-  const { state, loaded } = useEngineState()
+export function TodayTab({ onSessionStarted }: { onSessionStarted?: () => void }) {
+  const { state, dispatch, loaded } = useEngineState()
 
   const [availableMinutes, setAvailableMinutes] = useState(45)
   const [noGymToday, setNoGymToday] = useState(false)
@@ -62,6 +64,24 @@ export function TodayTab() {
     )
   }
 
+  if (state.draftSession) {
+    return (
+      <section className="panel-grid">
+        <article className="card">
+          <p className="note">
+            A workout is already in progress (started {new Date(state.draftSession.startedAt).toLocaleTimeString()}).
+          </p>
+          <p className="muted">Go to the Завершити tab to log it and finish.</p>
+          <div className="action-row">
+            <button type="button" onClick={() => dispatch({ type: 'DISCARD_DRAFT_SESSION' })}>
+              Discard this workout
+            </button>
+          </div>
+        </article>
+      </section>
+    )
+  }
+
   if (!inputsConfirmed) {
     return (
       <section className="panel-grid">
@@ -100,6 +120,20 @@ export function TodayTab() {
     noGymToday,
     availableMinutes,
   })
+
+  function startSession() {
+    const prescriptions = prescribeSession(slots, active!.goal, state.workoutLogs)
+    const exerciseLogs: DraftExerciseLog[] = prescriptions.map((p) => ({
+      exerciseId: p.exerciseId,
+      skipped: false,
+      sets: p.sets.map((s) => ({ weightKg: s.weightKg, reps: s.targetReps, role: s.role })),
+    }))
+    dispatch({
+      type: 'START_DRAFT_SESSION',
+      draftSession: { startedAt: new Date().toISOString(), focusMuscle: active!.block.focusMuscle, exerciseLogs },
+    })
+    onSessionStarted?.()
+  }
 
   return (
     <section className="panel-grid">
@@ -142,6 +176,13 @@ export function TodayTab() {
             ))}
           </ol>
         )}
+        {slots.length > 0 ? (
+          <div className="action-row">
+            <button type="button" onClick={startSession}>
+              Почати тренування
+            </button>
+          </div>
+        ) : null}
       </article>
 
       {openSlotIndex !== null && slots[openSlotIndex] ? (

@@ -1,7 +1,8 @@
 import type { UserProfile } from '../domain/profile/types'
 import type { Goal } from '../domain/goals/types'
 import type { SpecializationBlock } from '../domain/specialization/types'
-import type { PersistedState } from './state'
+import type { WorkoutLog } from '../domain/workoutLog/types'
+import type { DraftExerciseLog, DraftSession, PersistedState } from './state'
 
 /**
  * Actions carry fully-constructed values (goal/specializationBlock already
@@ -14,6 +15,10 @@ export type AppAction =
   | { type: 'SET_PROFILE'; profile: UserProfile }
   | { type: 'CREATE_GOAL'; goal: Goal; specializationBlock: SpecializationBlock }
   | { type: 'REPLACE_STATE'; state: PersistedState } // used both for load-on-mount hydration and for import — same "here is the full state" semantics
+  | { type: 'START_DRAFT_SESSION'; draftSession: DraftSession }
+  | { type: 'UPDATE_DRAFT_EXERCISE_LOG'; exerciseId: string; exerciseLog: DraftExerciseLog }
+  | { type: 'FINISH_DRAFT_SESSION'; workoutLog: WorkoutLog }
+  | { type: 'DISCARD_DRAFT_SESSION' }
 
 export function appReducer(state: PersistedState, action: AppAction): PersistedState {
   switch (action.type) {
@@ -27,6 +32,24 @@ export function appReducer(state: PersistedState, action: AppAction): PersistedS
       }
     case 'REPLACE_STATE':
       return action.state
+    case 'START_DRAFT_SESSION':
+      return { ...state, draftSession: action.draftSession }
+    case 'UPDATE_DRAFT_EXERCISE_LOG': {
+      if (!state.draftSession) return state
+      return {
+        ...state,
+        draftSession: {
+          ...state.draftSession,
+          exerciseLogs: state.draftSession.exerciseLogs.map((log) =>
+            log.exerciseId === action.exerciseId ? action.exerciseLog : log,
+          ),
+        },
+      }
+    }
+    case 'FINISH_DRAFT_SESSION':
+      return { ...state, workoutLogs: [...state.workoutLogs, action.workoutLog], draftSession: null }
+    case 'DISCARD_DRAFT_SESSION':
+      return { ...state, draftSession: null }
     default:
       return state
   }

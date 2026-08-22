@@ -37,9 +37,6 @@ import { AIAssistant } from './components/AIAssistant'
 import { ProgressPhotos } from './components/photos/ProgressPhotos'
 import { AIGeneratorPanel } from './components/programs/AIGeneratorPanel'
 import type {
-  ExerciseDifficulty,
-  LogActivityInput,
-  LogExerciseInput,
   ProgramMode,
   ProgramTemplate,
   RunStatus,
@@ -48,6 +45,7 @@ import type {
 import { loadAISettings } from './services/geminiService'
 import { SetupTab } from './components/engine/SetupTab'
 import { TodayTab } from './components/engine/TodayTab'
+import { FinishSessionTab } from './components/engine/FinishSessionTab'
 import './App.css'
 
 type AppTab =
@@ -84,19 +82,6 @@ const statusLabel: Record<RunStatus, string> = {
   paused: 'На паузі',
   completed: 'Завершено',
   archived: 'Архівовано',
-}
-
-function normalizeWeightUnit(unit?: string): 'kg' | 'lbs' {
-  const normalized = unit?.toLowerCase() ?? ''
-  if (normalized.includes('lb')) {
-    return 'lbs'
-  }
-
-  if (normalized.includes('kg') || normalized.includes('кг')) {
-    return 'kg'
-  }
-
-  return 'lbs'
 }
 
 function formatDateTime(iso: string): string {
@@ -153,11 +138,6 @@ function App() {
   const [createProgramOpen, setCreateProgramOpen] = useState(false)
   const [aiGenTemplate, setAiGenTemplate] = useState<ProgramTemplate | null>(null)
 
-  const [exerciseInputs, setExerciseInputs] = useState<LogExerciseInput[]>([])
-  const [activityInputs, setActivityInputs] = useState<LogActivityInput[]>([])
-  const [sessionNote, setSessionNote] = useState('')
-  const [sessionSuccessful, setSessionSuccessful] = useState(true)
-
   useEffect(() => {
     saveAppState(state)
   }, [state])
@@ -197,43 +177,6 @@ function App() {
 
     return buildProgramCalendar(selectedRun, selectedTemplate, state.workoutLogs)
   }, [selectedRun, selectedTemplate, state.workoutLogs])
-
-  const planKey = plannedSession
-    ? `${plannedSession.run.id}:${plannedSession.session.id}`
-    : null
-
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (!plannedSession || !planKey) {
-      setExerciseInputs([])
-      setActivityInputs([])
-      setSessionNote('')
-      return
-    }
-
-    setExerciseInputs(
-      plannedSession.exercises.map((exercise) => ({
-        exerciseId: exercise.id,
-        completed: true,
-        skipped: false,
-        actualWeight:
-          typeof exercise.plannedWeight === 'number'
-            ? Number(exercise.plannedWeight.toFixed(2))
-            : undefined,
-      })),
-    )
-
-    setActivityInputs(
-      (plannedSession.session.optionalActivities ?? []).map((activity) => ({
-        activityId: activity.id,
-        completed: false,
-      })),
-    )
-
-    setSessionNote('')
-    setSessionSuccessful(true)
-  }, [planKey, plannedSession])
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const activeTemplates = activeRuns
     .map((run) => getTemplateById(state.programTemplates, run.templateId))
@@ -350,52 +293,6 @@ function App() {
   function handlePause(runId: string): void {
     const reason = window.prompt('Pause reason (optional):') ?? undefined
     dispatch({ type: 'pauseRun', runId, reason })
-  }
-
-  function updateExerciseInput(
-    exerciseId: string,
-    patch: Partial<LogExerciseInput>,
-  ): void {
-    setExerciseInputs((previous) =>
-      previous.map((exerciseInput) =>
-        exerciseInput.exerciseId === exerciseId
-          ? { ...exerciseInput, ...patch }
-          : exerciseInput,
-      ),
-    )
-  }
-
-  function updateActivityInput(
-    activityId: string,
-    patch: Partial<LogActivityInput>,
-  ): void {
-    setActivityInputs((previous) =>
-      previous.map((activityInput) =>
-        activityInput.activityId === activityId
-          ? { ...activityInput, ...patch }
-          : activityInput,
-      ),
-    )
-  }
-
-  function handleSubmitLog(): void {
-    if (!plannedSession) {
-      return
-    }
-
-    dispatch({
-      type: 'logSession',
-      payload: {
-        runId: plannedSession.run.id,
-        completedAt: new Date().toISOString(),
-        successful: sessionSuccessful,
-        exerciseInputs,
-        activityInputs,
-        sessionNote,
-      },
-    })
-
-    setActiveTab('home')
   }
 
   function handleResetAllData(): void {
@@ -1286,299 +1183,9 @@ function App() {
         </section>
       )}
 
-      {activeTab === 'session' && <TodayTab />}
+      {activeTab === 'session' && <TodayTab onSessionStarted={() => setActiveTab('log')} />}
 
-      {activeTab === 'log' && (
-        <section className="panel-grid">
-          <article className="card card-wide">
-            <h2>Finish / Log Session</h2>
-            {plannedSession ? (
-              <>
-                <p className="next-session-title">{plannedSession.session.name}</p>
-                <p className="muted">
-                  Log quickly after training. Defaults are prefilled to reduce taps.
-                </p>
-
-                <div className="log-desktop-table">
-                  <table className="plan-table">
-                    <thead>
-                      <tr>
-                        <th>Exercise</th>
-                        <th>Completed</th>
-                        <th>Skipped</th>
-                        <th>Actual weight</th>
-                        <th>Difficulty</th>
-                        <th>Note</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {plannedSession.exercises.map((exercise) => {
-                        const exerciseInput =
-                          exerciseInputs.find((item) => item.exerciseId === exercise.id) ??
-                          null
-
-                        return (
-                          <tr key={exercise.id}>
-                            <td>{exercise.name}</td>
-                            <td>
-                              <input
-                                type="checkbox"
-                                checked={exerciseInput?.completed ?? false}
-                                onChange={(event) =>
-                                  updateExerciseInput(exercise.id, {
-                                    completed: event.target.checked,
-                                    skipped: event.target.checked
-                                      ? false
-                                      : exerciseInput?.skipped ?? false,
-                                  })
-                                }
-                              />
-                            </td>
-                            <td>
-                              <input
-                                type="checkbox"
-                                checked={exerciseInput?.skipped ?? false}
-                                onChange={(event) =>
-                                  updateExerciseInput(exercise.id, {
-                                    skipped: event.target.checked,
-                                    completed: event.target.checked ? false : true,
-                                  })
-                                }
-                              />
-                            </td>
-                            <td>
-                              {(() => {
-                                const unitLabel = normalizeWeightUnit(exercise.weightUnit)
-                                return (
-                                  <label className="stacked-field">
-                                    <span>{unitLabel}</span>
-                                    <input
-                                      type="number"
-                                      value={exerciseInput?.actualWeight ?? ''}
-                                      onChange={(event) =>
-                                        updateExerciseInput(exercise.id, {
-                                          actualWeight:
-                                            event.target.value === ''
-                                              ? undefined
-                                              : Number(event.target.value),
-                                        })
-                                      }
-                                    />
-                                  </label>
-                                )
-                              })()}
-                            </td>
-                            <td>
-                              <select
-                                value={exerciseInput?.difficulty ?? ''}
-                                onChange={(event) =>
-                                  updateExerciseInput(exercise.id, {
-                                    difficulty:
-                                      event.target.value === ''
-                                        ? undefined
-                                        : (event.target.value as ExerciseDifficulty),
-                                  })
-                                }
-                              >
-                                <option value="">-</option>
-                                <option value="easy">easy</option>
-                                <option value="okay">okay</option>
-                                <option value="hard">hard</option>
-                              </select>
-                            </td>
-                            <td>
-                              <input
-                                type="text"
-                                value={exerciseInput?.note ?? ''}
-                                onChange={(event) =>
-                                  updateExerciseInput(exercise.id, {
-                                    note: event.target.value,
-                                  })
-                                }
-                              />
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="log-mobile-cards" aria-label="Exercise log cards">
-                  {plannedSession.exercises.map((exercise) => {
-                    const exerciseInput =
-                      exerciseInputs.find((item) => item.exerciseId === exercise.id) ?? null
-
-                    return (
-                      <article key={exercise.id} className="log-exercise-card">
-                        <h3>{exercise.name}</h3>
-                        <p className="muted">
-                          Sets: {exercise.sets} | Reps: {exercise.reps}
-                        </p>
-
-                        <div className="log-checkbox-grid">
-                          <label className="log-checkbox-field">
-                            Completed
-                            <input
-                              type="checkbox"
-                              checked={exerciseInput?.completed ?? false}
-                              onChange={(event) =>
-                                updateExerciseInput(exercise.id, {
-                                  completed: event.target.checked,
-                                  skipped: event.target.checked
-                                    ? false
-                                    : exerciseInput?.skipped ?? false,
-                                })
-                              }
-                            />
-                          </label>
-
-                          <label className="log-checkbox-field">
-                            Skipped
-                            <input
-                              type="checkbox"
-                              checked={exerciseInput?.skipped ?? false}
-                              onChange={(event) =>
-                                updateExerciseInput(exercise.id, {
-                                  skipped: event.target.checked,
-                                  completed: event.target.checked ? false : true,
-                                })
-                              }
-                            />
-                          </label>
-                        </div>
-
-                        <div className="log-input-grid">
-                          <label className="stacked-field">
-                            {`Actual weight (${normalizeWeightUnit(exercise.weightUnit)})`}
-                            <input
-                              type="number"
-                              value={exerciseInput?.actualWeight ?? ''}
-                              onChange={(event) =>
-                                updateExerciseInput(exercise.id, {
-                                  actualWeight:
-                                    event.target.value === ''
-                                      ? undefined
-                                      : Number(event.target.value),
-                                })
-                              }
-                            />
-                          </label>
-
-                          <label className="stacked-field">
-                            Difficulty
-                            <select
-                              value={exerciseInput?.difficulty ?? ''}
-                              onChange={(event) =>
-                                updateExerciseInput(exercise.id, {
-                                  difficulty:
-                                    event.target.value === ''
-                                      ? undefined
-                                      : (event.target.value as ExerciseDifficulty),
-                                })
-                              }
-                            >
-                              <option value="">-</option>
-                              <option value="easy">easy</option>
-                              <option value="okay">okay</option>
-                              <option value="hard">hard</option>
-                            </select>
-                          </label>
-
-                          <label className="stacked-field">
-                            Note
-                            <input
-                              type="text"
-                              value={exerciseInput?.note ?? ''}
-                              onChange={(event) =>
-                                updateExerciseInput(exercise.id, {
-                                  note: event.target.value,
-                                })
-                              }
-                            />
-                          </label>
-                        </div>
-                      </article>
-                    )
-                  })}
-                </div>
-
-                {(plannedSession.session.optionalActivities?.length ?? 0) > 0 ? (
-                  <div className="activities">
-                    <h3>Optional Activities</h3>
-                    <ul className="list-plain">
-                      {plannedSession.session.optionalActivities?.map((activity) => {
-                        const activityInput =
-                          activityInputs.find((item) => item.activityId === activity.id) ??
-                          null
-
-                        return (
-                          <li key={activity.id} className="item-row">
-                            <strong>{activity.name}</strong>
-                            <label>
-                              done
-                              <input
-                                type="checkbox"
-                                checked={activityInput?.completed ?? false}
-                                onChange={(event) =>
-                                  updateActivityInput(activity.id, {
-                                    completed: event.target.checked,
-                                  })
-                                }
-                              />
-                            </label>
-                            <input
-                              type="text"
-                              placeholder={activity.defaultDuration ?? 'duration'}
-                              value={activityInput?.duration ?? ''}
-                              onChange={(event) =>
-                                updateActivityInput(activity.id, {
-                                  duration: event.target.value,
-                                })
-                              }
-                            />
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </div>
-                ) : null}
-
-                <label className="stacked-field">
-                  Session note
-                  <textarea
-                    value={sessionNote}
-                    onChange={(event) => setSessionNote(event.target.value)}
-                    rows={3}
-                    placeholder="Optional summary note"
-                  />
-                </label>
-
-                <label className="inline-field">
-                  <span>Session counts for progression</span>
-                  <select
-                    value={sessionSuccessful ? 'yes' : 'no'}
-                    onChange={(event) =>
-                      setSessionSuccessful(event.target.value === 'yes')
-                    }
-                  >
-                    <option value="yes">Yes (successful)</option>
-                    <option value="no">No (logged but no progression)</option>
-                  </select>
-                </label>
-
-                <div className="action-row">
-                  <button type="button" onClick={handleSubmitLog}>
-                    Save Session Log
-                  </button>
-                </div>
-              </>
-            ) : (
-              <p>No active planned session to log.</p>
-            )}
-          </article>
-        </section>
-      )}
+      {activeTab === 'log' && <FinishSessionTab />}
 
       {activeTab === 'history' && (
         <section className="panel-grid">

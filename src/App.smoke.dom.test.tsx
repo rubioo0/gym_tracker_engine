@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import App from './App'
 import { EngineStateProvider } from './components/engine/EngineStateProvider'
 import type { TrainingDataRepository } from './application/repository'
+import type { PersistedState } from './application/state'
 
 /**
  * Component-level smoke tests, added after a real regression this session
@@ -28,12 +29,35 @@ function disposableEngineRepository(): TrainingDataRepository {
   }
 }
 
-function renderApp() {
+function renderApp(seedState?: PersistedState) {
+  const repository: TrainingDataRepository = seedState
+    ? { loadState: async () => seedState, saveState: async () => {} }
+    : disposableEngineRepository()
   return render(
-    <EngineStateProvider repository={disposableEngineRepository()}>
+    <EngineStateProvider repository={repository}>
       <App />
     </EngineStateProvider>,
   )
+}
+
+const SEEDED_STATE_WITH_ACTIVE_GOAL: PersistedState = {
+  profile: { deficitLabel: 'notDieting', sessionsPerWeek: 3, injuredMuscles: [], experienceByMuscle: {} },
+  goals: [
+    {
+      id: 'g1',
+      exerciseId: 'Barbell_Curl',
+      startingWeightKg: 20,
+      targetWeightKg: 30,
+      deadline: '2027-01-01T00:00:00.000Z',
+      createdAt: '2026-08-01T00:00:00.000Z',
+      trainingEmphasis: 'strength',
+    },
+  ],
+  specializationBlocks: [{ goalId: 'g1', focusMuscle: 'biceps', startedAt: '2026-08-01T00:00:00.000Z', endedAt: null }],
+  workoutLogs: [],
+  weighIns: [],
+  circumferenceMeasurements: [],
+  draftSession: null,
 }
 
 afterEach(() => {
@@ -90,5 +114,46 @@ describe('App smoke test', () => {
     renderApp()
     fireEvent.click(screen.getByRole('button', { name: 'Дані' }))
     expect(screen.getByText('Import / Data Management')).toBeTruthy()
+  })
+
+  it(
+    'full start-training -> finish-training flow: assembling a session, starting it, ' +
+      'and finishing it actually saves a workout log (the exact regression reported: ' +
+      '"not saved as in old app" / "cannot end the training on Завершити")',
+    async () => {
+      renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
+
+      fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Assemble my session' }))
+
+      const startButton = await screen.findByRole('button', { name: 'Почати тренування' })
+      expect(await screen.findByText('Barbell Curl')).toBeTruthy()
+      fireEvent.click(startButton)
+
+      // Starting a session navigates straight to Завершити (App.tsx's onSessionStarted).
+      expect(await screen.findByRole('heading', { name: 'Завершити тренування' })).toBeTruthy()
+      expect(screen.getByText('Barbell Curl')).toBeTruthy()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Завершити тренування' }))
+
+      // The draft is cleared and the finished log persisted -- re-entering
+      // Завершити (still the active tab) now shows nothing in progress.
+      expect(await screen.findByText('No workout in progress.')).toBeTruthy()
+    },
+  )
+
+  it('discarding an in-progress workout from План сесії clears it without creating a log', async () => {
+    renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
+
+    fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Assemble my session' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Почати тренування' }))
+
+    // Back on План сесії, the in-progress banner should show instead of re-assembling.
+    fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
+    expect(await screen.findByText(/A workout is already in progress/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard this workout' }))
+    expect(await screen.findByRole('heading', { name: "Before we assemble today's session" })).toBeTruthy()
   })
 })

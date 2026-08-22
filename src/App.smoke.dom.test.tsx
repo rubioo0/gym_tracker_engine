@@ -57,7 +57,6 @@ const SEEDED_STATE_WITH_ACTIVE_GOAL: PersistedState = {
   workoutLogs: [],
   weighIns: [],
   circumferenceMeasurements: [],
-  draftSession: null,
 }
 
 afterEach(() => {
@@ -117,8 +116,8 @@ describe('App smoke test', () => {
   })
 
   it(
-    'full start-training -> finish-training flow: assembling a session, starting it, ' +
-      'and finishing it actually saves a workout log (the exact regression reported: ' +
+    'full "План сесії" -> "Завершити" flow: assembling a session, navigating to finish it, ' +
+      'and submitting actually saves a workout log (the exact regression reported: ' +
       '"not saved as in old app" / "cannot end the training on Завершити")',
     async () => {
       renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
@@ -126,34 +125,39 @@ describe('App smoke test', () => {
       fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
       fireEvent.click(await screen.findByRole('button', { name: 'Assemble my session' }))
 
-      const startButton = await screen.findByRole('button', { name: 'Почати тренування' })
+      const goToFinishButton = await screen.findByRole('button', { name: 'Перейти до Завершити' })
       expect(await screen.findByText('Barbell Curl')).toBeTruthy()
-      fireEvent.click(startButton)
+      fireEvent.click(goToFinishButton)
 
-      // Starting a session navigates straight to Завершити (App.tsx's onSessionStarted).
+      // Navigating to Завершити is plain tab navigation (App.tsx's onGoToFinish) --
+      // it independently recomputes its own prescription, nothing was "started".
       expect(await screen.findByRole('heading', { name: 'Завершити тренування' })).toBeTruthy()
       expect(screen.getByText('Barbell Curl')).toBeTruthy()
 
       fireEvent.click(screen.getByRole('button', { name: 'Завершити тренування' }))
 
-      // The draft is cleared and the finished log persisted -- re-entering
-      // Завершити (still the active tab) now shows nothing in progress.
-      expect(await screen.findByText('No workout in progress.')).toBeTruthy()
+      // The workout was actually persisted (not just a local-only success message):
+      // a fresh form appears immediately, ready to log another one -- because there
+      // is no "already logged" lock, exactly like the old app's Log tab.
+      expect(await screen.findByText('Workout saved. Logging a fresh one below.')).toBeTruthy()
+      expect(screen.getByText('Barbell Curl')).toBeTruthy()
     },
   )
 
-  it('discarding an in-progress workout from План сесії clears it without creating a log', async () => {
-    renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
+  it(
+    'regression guard: visiting "План сесії" repeatedly never shows a blocking ' +
+      '"already in progress" message -- the exact scenario that broke ("I cant open again")',
+    async () => {
+      renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
 
-    fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Assemble my session' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Почати тренування' }))
-
-    // Back on План сесії, the in-progress banner should show instead of re-assembling.
-    fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
-    expect(await screen.findByText(/A workout is already in progress/)).toBeTruthy()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Discard this workout' }))
-    expect(await screen.findByRole('heading', { name: "Before we assemble today's session" })).toBeTruthy()
-  })
+      for (let visit = 0; visit < 3; visit++) {
+        fireEvent.click(screen.getByRole('button', { name: 'Головна' }))
+        fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
+        expect(await screen.findByRole('heading', { name: "Before we assemble today's session" })).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'Assemble my session' }))
+        expect(await screen.findByText('Barbell Curl')).toBeTruthy()
+        expect(screen.queryByText(/already in progress/i)).toBeNull()
+      }
+    },
+  )
 })

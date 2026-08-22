@@ -3,8 +3,6 @@ import { useEngineState } from './useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock } from '../../application/activeGoal'
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
-import { prescribeSession } from '../../application/sessionPrescription'
-import type { DraftExerciseLog } from '../../application/state'
 import { ExerciseDetailModal } from './ExerciseDetailModal'
 import './EngineTabs.css'
 
@@ -14,8 +12,16 @@ const RENEWAL_MESSAGES: Record<GoalRenewalReason, string> = {
   focusMuscleInjured: 'Your focus muscle is marked as injured.',
 }
 
-export function TodayTab({ onSessionStarted }: { onSessionStarted?: () => void }) {
-  const { state, dispatch, loaded } = useEngineState()
+/**
+ * A pure viewer, like the old app's SessionPlanPanel: everything here is
+ * recomputed fresh from persisted goals/specializationBlocks/workoutLogs on
+ * every render, nothing is "started" or locked. Actual logging happens in
+ * FinishSessionTab (Завершити), which independently recomputes its own
+ * prescription — the two tabs are connected only by a plain navigation
+ * button, never by a shared piece of state that could get stuck.
+ */
+export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
+  const { state, loaded } = useEngineState()
 
   const [availableMinutes, setAvailableMinutes] = useState(45)
   const [noGymToday, setNoGymToday] = useState(false)
@@ -64,24 +70,6 @@ export function TodayTab({ onSessionStarted }: { onSessionStarted?: () => void }
     )
   }
 
-  if (state.draftSession) {
-    return (
-      <section className="panel-grid">
-        <article className="card">
-          <p className="note">
-            A workout is already in progress (started {new Date(state.draftSession.startedAt).toLocaleTimeString()}).
-          </p>
-          <p className="muted">Go to the Завершити tab to log it and finish.</p>
-          <div className="action-row">
-            <button type="button" onClick={() => dispatch({ type: 'DISCARD_DRAFT_SESSION' })}>
-              Discard this workout
-            </button>
-          </div>
-        </article>
-      </section>
-    )
-  }
-
   if (!inputsConfirmed) {
     return (
       <section className="panel-grid">
@@ -120,20 +108,6 @@ export function TodayTab({ onSessionStarted }: { onSessionStarted?: () => void }
     noGymToday,
     availableMinutes,
   })
-
-  function startSession() {
-    const prescriptions = prescribeSession(slots, active!.goal, state.workoutLogs)
-    const exerciseLogs: DraftExerciseLog[] = prescriptions.map((p) => ({
-      exerciseId: p.exerciseId,
-      skipped: false,
-      sets: p.sets.map((s) => ({ weightKg: s.weightKg, reps: s.targetReps, role: s.role })),
-    }))
-    dispatch({
-      type: 'START_DRAFT_SESSION',
-      draftSession: { startedAt: new Date().toISOString(), focusMuscle: active!.block.focusMuscle, exerciseLogs },
-    })
-    onSessionStarted?.()
-  }
 
   return (
     <section className="panel-grid">
@@ -178,8 +152,8 @@ export function TodayTab({ onSessionStarted }: { onSessionStarted?: () => void }
         )}
         {slots.length > 0 ? (
           <div className="action-row">
-            <button type="button" onClick={startSession}>
-              Почати тренування
+            <button type="button" onClick={onGoToFinish}>
+              Перейти до Завершити
             </button>
           </div>
         ) : null}

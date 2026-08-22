@@ -1,23 +1,51 @@
 import { useState } from 'react'
 import { useEngineState } from './useEngineState'
+import { getActiveGoalAndBlock, countSessionsInBlock } from '../../application/activeGoal'
+import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
+import { assembleTodaysSession } from '../../application/sessionOrchestration'
+import { prescribeSession } from '../../application/sessionPrescription'
 import { getExerciseById } from '../../domain/exerciseLibrary/exerciseLibrary'
 import type { ExerciseDifficulty, SetEntry, WorkoutLog } from '../../domain/workoutLog/types'
-import type { DraftExerciseLog } from '../../application/state'
+
+const RENEWAL_MESSAGES: Record<GoalRenewalReason, string> = {
+  deadlinePassed: 'Your goal’s deadline has passed.',
+  targetMet: 'You hit your target!',
+  focusMuscleInjured: 'Your focus muscle is marked as injured.',
+}
 
 /**
- * The other half of the merged flow: "План сесії" assembles + starts a
- * draft session (application/sessionPrescription.ts prefills weights via
- * APRE/repeat-last-weight), this tab lets you edit what you actually did
- * per set and finish it — same interaction shape as the old app's Log tab
- * (per-exercise card, skip toggle, difficulty), reusing its
- * .log-exercise-card/.log-checkbox-field/.log-input-grid classes, but
- * writing into the new engine's own WorkoutLog model instead of the old
- * app's plannedSession-based one.
+ * A generous fixed time budget for the logging screen only, so nothing
+ * gets time-cut here regardless of whatever was picked minutes earlier on
+ * План сесії — showing the fuller candidate list and letting the user mark
+ * unused exercises "skip" is more forgiving than risking a mismatch. The
+ * old app's own Log tab never had a time-budget concept to reconcile in
+ * the first place (see reducer.ts's logSession — no cutting logic at all).
+ */
+const GENEROUS_MINUTES_FOR_LOGGING = 240
+
+interface EditableExerciseLog {
+  exerciseId: string
+  sets: SetEntry[]
+  skipped: boolean
+  difficulty?: ExerciseDifficulty
+}
+
+/**
+ * Independently recomputes today's plan every render (same guard chain and
+ * same assembleTodaysSession call as TodayTab) and holds in-progress edits
+ * in ordinary component state — exactly like the old app's Log tab held
+ * exerciseInputs locally in App.tsx, never in the persisted reducer state.
+ * Nothing here can leave the user "stuck": closing the tab mid-edit just
+ * drops the unsaved local state, and reopening gives a fresh form seeded
+ * from the current prescription again.
  */
 export function FinishSessionTab() {
   const { state, dispatch, loaded } = useEngineState()
+  const [noGymToday, setNoGymToday] = useState(false)
   const [successful, setSuccessful] = useState(true)
   const [note, setNote] = useState('')
+  const [edits, setEdits] = useState<EditableExerciseLog[] | null>(null)
+  const [justFinished, setJustFinished] = useState(false)
 
   if (!loaded) {
     return (
@@ -28,40 +56,69 @@ export function FinishSessionTab() {
       </section>
     )
   }
-
-  const draft = state.draftSession
-  if (!draft) {
+  if (!state.profile) {
     return (
       <section className="panel-grid">
         <article className="card">
-          <p>No workout in progress.</p>
-          <p className="muted">Start one from the План сесії tab.</p>
+          <p>Set up your profile first, on the Setup tab.</p>
         </article>
       </section>
     )
   }
 
-  function findLog(exerciseId: string): DraftExerciseLog | undefined {
-    return draft!.exerciseLogs.find((l) => l.exerciseId === exerciseId)
+  const active = getActiveGoalAndBlock(state)
+  if (!active) {
+    return (
+      <section className="panel-grid">
+        <article className="card">
+          <p>No active goal yet. Create one on the Setup tab to start training.</p>
+        </article>
+      </section>
+    )
+  }
+
+  const renewalReason = checkGoalNeedsRenewal(active.goal, active.block, state.profile, null, new Date())
+  if (renewalReason) {
+    return (
+      <section className="panel-grid">
+        <article className="card">
+          <p className="note">{RENEWAL_MESSAGES[renewalReason]}</p>
+          <p className="muted">Set your next goal on the Setup tab.</p>
+        </article>
+      </section>
+    )
+  }
+
+  const completedSessionsInBlock = countSessionsInBlock(state.workoutLogs, active.block)
+  const slots = assembleTodaysSession({
+    focusMuscle: active.block.focusMuscle,
+    goalExerciseId: active.goal.exerciseId,
+    injuredMuscles: state.profile.injuredMuscles,
+    sessionsPerWeek: state.profile.sessionsPerWeek,
+    completedSessionsInBlock,
+    noGymToday,
+    availableMinutes: GENEROUS_MINUTES_FOR_LOGGING,
+  })
+
+  function seedEdits(): EditableExerciseLog[] {
+    const prescriptions = prescribeSession(slots, active!.goal, state.workoutLogs)
+    return prescriptions.map((p) => ({
+      exerciseId: p.exerciseId,
+      skipped: false,
+      sets: p.sets.map((s) => ({ weightKg: s.weightKg, reps: s.targetReps, role: s.role })),
+    }))
+  }
+
+  const currentEdits = edits ?? seedEdits()
+
+  function updateExercise(exerciseId: string, patch: Partial<EditableExerciseLog>) {
+    setEdits(currentEdits.map((log) => (log.exerciseId === exerciseId ? { ...log, ...patch } : log)))
   }
 
   function updateSet(exerciseId: string, setIndex: number, patch: Partial<SetEntry>) {
-    const log = findLog(exerciseId)
+    const log = currentEdits.find((l) => l.exerciseId === exerciseId)
     if (!log) return
-    const sets = log.sets.map((s, i) => (i === setIndex ? { ...s, ...patch } : s))
-    dispatch({ type: 'UPDATE_DRAFT_EXERCISE_LOG', exerciseId, exerciseLog: { ...log, sets } })
-  }
-
-  function toggleSkipped(exerciseId: string, skipped: boolean) {
-    const log = findLog(exerciseId)
-    if (!log) return
-    dispatch({ type: 'UPDATE_DRAFT_EXERCISE_LOG', exerciseId, exerciseLog: { ...log, skipped } })
-  }
-
-  function setDifficulty(exerciseId: string, difficulty: ExerciseDifficulty | undefined) {
-    const log = findLog(exerciseId)
-    if (!log) return
-    dispatch({ type: 'UPDATE_DRAFT_EXERCISE_LOG', exerciseId, exerciseLog: { ...log, difficulty } })
+    updateExercise(exerciseId, { sets: log.sets.map((s, i) => (i === setIndex ? { ...s, ...patch } : s)) })
   }
 
   function finish() {
@@ -70,26 +127,36 @@ export function FinishSessionTab() {
       completedAt: new Date().toISOString(),
       successful,
       note: note || undefined,
-      exerciseLogs: draft!.exerciseLogs,
+      exerciseLogs: currentEdits,
     }
-    dispatch({ type: 'FINISH_DRAFT_SESSION', workoutLog })
-  }
-
-  function discard() {
-    if (window.confirm('Discard this workout without saving it?')) {
-      dispatch({ type: 'DISCARD_DRAFT_SESSION' })
-    }
+    dispatch({ type: 'LOG_WORKOUT', workoutLog })
+    setEdits(null)
+    setSuccessful(true)
+    setNote('')
+    setJustFinished(true)
   }
 
   return (
     <section className="panel-grid">
       <article className="card card-wide">
         <h2>Завершити тренування</h2>
-        <p className="muted">
-          Started {new Date(draft.startedAt).toLocaleString()} — focus: {draft.focusMuscle}
-        </p>
+        {justFinished ? <p className="note">Workout saved. Logging a fresh one below.</p> : null}
+        <p className="muted">Focus: {active.block.focusMuscle}</p>
 
-        {draft.exerciseLogs.map((log) => {
+        <label className="log-checkbox-field inline-field">
+          No gym today
+          <input
+            type="checkbox"
+            checked={noGymToday}
+            onChange={(e) => {
+              setNoGymToday(e.target.checked)
+              setEdits(null)
+              setJustFinished(false)
+            }}
+          />
+        </label>
+
+        {currentEdits.map((log) => {
           const exercise = getExerciseById(log.exerciseId)
           return (
             <article key={log.exerciseId} className="log-exercise-card">
@@ -100,7 +167,10 @@ export function FinishSessionTab() {
                 <input
                   type="checkbox"
                   checked={log.skipped}
-                  onChange={(e) => toggleSkipped(log.exerciseId, e.target.checked)}
+                  onChange={(e) => {
+                    setJustFinished(false)
+                    updateExercise(log.exerciseId, { skipped: e.target.checked })
+                  }}
                 />
               </label>
 
@@ -113,7 +183,10 @@ export function FinishSessionTab() {
                         <input
                           type="number"
                           value={set.weightKg}
-                          onChange={(e) => updateSet(log.exerciseId, i, { weightKg: Number(e.target.value) })}
+                          onChange={(e) => {
+                            setJustFinished(false)
+                            updateSet(log.exerciseId, i, { weightKg: Number(e.target.value) })
+                          }}
                         />
                       </label>
                       <label className="stacked-field">
@@ -121,7 +194,10 @@ export function FinishSessionTab() {
                         <input
                           type="number"
                           value={set.reps}
-                          onChange={(e) => updateSet(log.exerciseId, i, { reps: Number(e.target.value) })}
+                          onChange={(e) => {
+                            setJustFinished(false)
+                            updateSet(log.exerciseId, i, { reps: Number(e.target.value) })
+                          }}
                         />
                       </label>
                     </div>
@@ -130,9 +206,12 @@ export function FinishSessionTab() {
                     Difficulty
                     <select
                       value={log.difficulty ?? ''}
-                      onChange={(e) =>
-                        setDifficulty(log.exerciseId, e.target.value === '' ? undefined : (e.target.value as ExerciseDifficulty))
-                      }
+                      onChange={(e) => {
+                        setJustFinished(false)
+                        updateExercise(log.exerciseId, {
+                          difficulty: e.target.value === '' ? undefined : (e.target.value as ExerciseDifficulty),
+                        })
+                      }}
                     >
                       <option value="">-</option>
                       <option value="easy">easy</option>
@@ -148,19 +227,30 @@ export function FinishSessionTab() {
 
         <label className="log-checkbox-field">
           Session successful
-          <input type="checkbox" checked={successful} onChange={(e) => setSuccessful(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={successful}
+            onChange={(e) => {
+              setJustFinished(false)
+              setSuccessful(e.target.checked)
+            }}
+          />
         </label>
         <label className="stacked-field">
           Note
-          <input type="text" value={note} onChange={(e) => setNote(e.target.value)} />
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => {
+              setJustFinished(false)
+              setNote(e.target.value)
+            }}
+          />
         </label>
 
         <div className="action-row">
           <button type="button" onClick={finish}>
             Завершити тренування
-          </button>
-          <button type="button" onClick={discard}>
-            Скасувати
           </button>
         </div>
       </article>

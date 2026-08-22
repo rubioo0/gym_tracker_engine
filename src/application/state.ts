@@ -1,31 +1,8 @@
 import type { UserProfile } from '../domain/profile/types'
 import type { Goal } from '../domain/goals/types'
 import type { SpecializationBlock } from '../domain/specialization/types'
-import type { ExerciseDifficulty, SetEntry, WorkoutLog } from '../domain/workoutLog/types'
+import type { WorkoutLog } from '../domain/workoutLog/types'
 import type { WeighIn, CircumferenceMeasurement } from '../domain/measurements/types'
-import type { MuscleGroupId } from '../domain/muscles/muscleTaxonomy'
-
-/**
- * A workout that's been started (session assembled, prescription generated)
- * but not yet finished — the missing link between "План сесії" (assembles
- * and starts it) and "Завершити" (logs actual performance and finishes it).
- * Persisted (not just in-memory React state) so it survives a tab switch
- * or a page reload mid-workout, matching the old app's own resilience for
- * an in-progress FocusRun session. There is at most one at a time — no
- * concept of starting a second session before finishing/discarding this one.
- */
-export interface DraftExerciseLog {
-  exerciseId: string
-  sets: SetEntry[]
-  skipped: boolean
-  difficulty?: ExerciseDifficulty
-}
-
-export interface DraftSession {
-  startedAt: string // ISO timestamp
-  focusMuscle: MuscleGroupId
-  exerciseLogs: DraftExerciseLog[]
-}
 
 /**
  * Everything persisted between sessions. A single blob in one IndexedDB
@@ -35,6 +12,19 @@ export interface DraftSession {
  * queries (per-muscle history, etc.) are computed by the domain layer's
  * pure functions over this loaded blob, not by the storage layer. Also
  * exactly what export/import serializes — see ui/SetupScreen.tsx.
+ *
+ * Deliberately no "in-progress session" record of any kind — matching the
+ * old app's own model (its FocusRun.status='active' is a cheap, reversible
+ * flag, not a lock; its Log tab reads a freshly-recomputed plan plus purely
+ * ephemeral, page-local form state that's never persisted). An earlier
+ * version of this file had a `draftSession` field that blocked "План сесії"
+ * until it was finished or explicitly discarded — that produced a real
+ * dead-end (started a workout, closed the tab, came back to a permanently
+ * "in progress" screen). See application/sessionPrescription.ts and
+ * components/engine/FinishSessionTab.tsx for how logging now works instead:
+ * both screens recompute today's plan fresh from goals/specializationBlocks/
+ * workoutLogs below, and FinishSessionTab holds its in-progress edits in
+ * ordinary component state, exactly like the old app's exerciseInputs.
  */
 export interface PersistedState {
   profile: UserProfile | null
@@ -43,7 +33,6 @@ export interface PersistedState {
   workoutLogs: WorkoutLog[]
   weighIns: WeighIn[]
   circumferenceMeasurements: CircumferenceMeasurement[]
-  draftSession: DraftSession | null
 }
 
 export const INITIAL_STATE: PersistedState = {
@@ -53,7 +42,6 @@ export const INITIAL_STATE: PersistedState = {
   workoutLogs: [],
   weighIns: [],
   circumferenceMeasurements: [],
-  draftSession: null,
 }
 
 /** Runtime shape check for imported JSON — see ui/SetupScreen.tsx's import flow. Deliberately loose (checks top-level keys/types only, not deep validation) since this only guards against importing an unrelated/corrupt file, not a full schema validator. */
@@ -66,7 +54,6 @@ export function isPersistedState(value: unknown): value is PersistedState {
     Array.isArray(v.specializationBlocks) &&
     Array.isArray(v.workoutLogs) &&
     Array.isArray(v.weighIns) &&
-    Array.isArray(v.circumferenceMeasurements) &&
-    (v.draftSession === null || v.draftSession === undefined || typeof v.draftSession === 'object')
+    Array.isArray(v.circumferenceMeasurements)
   )
 }

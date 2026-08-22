@@ -43,30 +43,4 @@ describe('isPersistedState', () => {
     ).toBe(false)
   })
 
-  it('accepts a backup exported before draftSession existed (boundary condition — undefined, not present at all)', () => {
-    expect(
-      isPersistedState({
-        profile: null,
-        goals: [],
-        specializationBlocks: [],
-        workoutLogs: [],
-        weighIns: [],
-        circumferenceMeasurements: [],
-      }),
-    ).toBe(true)
-  })
-
-  it('accepts a populated draftSession object, and rejects a non-null/non-object draftSession', () => {
-    const base = {
-      profile: null,
-      goals: [],
-      specializationBlocks: [],
-      workoutLogs: [],
-      weighIns: [],
-      circumferenceMeasurements: [],
-    }
-    expect(isPersistedState({ ...base, draftSession: { startedAt: 'x', focusMuscle: 'chest', exerciseLogs: [] } })).toBe(true)
-    expect(isPersistedState({ ...base, draftSession: null })).toBe(true)
-    expect(isPersistedState({ ...base, draftSession: 'not-an-object' })).toBe(false)
-  })
 })

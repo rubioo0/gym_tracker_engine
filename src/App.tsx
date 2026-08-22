@@ -1183,7 +1183,7 @@ function App() {
         </section>
       )}
 
-      {activeTab === 'session' && <TodayTab onSessionStarted={() => setActiveTab('log')} />}
+      {activeTab === 'session' && <TodayTab onGoToFinish={() => setActiveTab('log')} />}
 
       {activeTab === 'log' && <FinishSessionTab />}
 

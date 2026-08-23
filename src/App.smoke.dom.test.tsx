@@ -251,6 +251,19 @@ describe('App smoke test', () => {
     expect(await screen.findByText('No logs yet.')).toBeTruthy()
   })
 
+  it('"Календар" shows the active goal\'s focus and at least one projected entry', async () => {
+    renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
+    fireEvent.click(screen.getByRole('button', { name: 'Календар' }))
+    expect(await screen.findByText('Barbell Curl', { exact: false })).toBeTruthy()
+    expect(screen.getAllByText('projected').length).toBeGreaterThan(0)
+  })
+
+  it('"Календар" points to Автопрофіль when there is no active goal', async () => {
+    renderApp()
+    fireEvent.click(screen.getByRole('button', { name: 'Календар' }))
+    expect(await screen.findByText('No active goal yet. Create one on the Автопрофіль tab to start training.')).toBeTruthy()
+  })
+
   it("Завершити uses the same plan already confirmed on План сесії, and forgets it again once the workout is logged (ready to ask fresh for the next one)", async () => {
     renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
 

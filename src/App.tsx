@@ -16,20 +16,9 @@ import {
 import { exportProgramTemplateToCsv } from './data/csvExport'
 import { extractCsvImportMetadata } from './data/csvImport'
 import { exportWorkoutLogsToExcel, buildExcelLogFileName } from './data/excelLogExport'
-import {
-  buildExcelCalendarFileName,
-  exportProgramCalendarToExcel,
-} from './data/excelCalendarExport'
 import { importWorkoutLogsFromExcel } from './data/excelLogImport'
-import {
-  buildProgramCalendar,
-  getActiveRuns,
-  getRunnableRunForTemplate,
-  getSuggestedRun,
-  getTemplateById,
-} from './domain/logic'
+import { getRunnableRunForTemplate, getTemplateById } from './domain/logic'
 import { appReducer } from './domain/reducer'
-import { ProgramCalendarView } from './components/calendar/ProgramCalendarView'
 import { StatsTab } from './components/stats/StatsTab'
 import { PlanEditorModal } from './components/PlanEditorModal'
 import { AIAssistant } from './components/AIAssistant'
@@ -47,6 +36,7 @@ import { FinishSessionTab } from './components/engine/FinishSessionTab'
 import { HomeTab } from './components/engine/HomeTab'
 import { FocusTab } from './components/engine/FocusTab'
 import { HistoryTab } from './components/engine/HistoryTab'
+import { CalendarTab } from './components/engine/CalendarTab'
 import { useEngineState } from './components/engine/useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock } from './application/activeGoal'
 import './App.css'
@@ -116,34 +106,6 @@ function App() {
   useEffect(() => {
     saveAppState(state)
   }, [state])
-
-  const activeRuns = useMemo(() => getActiveRuns(state), [state])
-
-  const suggestedRun = useMemo(() => getSuggestedRun(state), [state])
-
-  const selectedRun = useMemo(() => {
-    const manuallySelectedRun = state.selectedRunId
-      ? activeRuns.find((run) => run.id === state.selectedRunId)
-      : null
-
-    return manuallySelectedRun ?? suggestedRun
-  }, [activeRuns, state.selectedRunId, suggestedRun])
-
-  const selectedTemplate = useMemo(() => {
-    if (!selectedRun) {
-      return null
-    }
-
-    return getTemplateById(state.programTemplates, selectedRun.templateId) ?? null
-  }, [selectedRun, state.programTemplates])
-
-  const programCalendar = useMemo(() => {
-    if (!selectedRun || !selectedTemplate) {
-      return null
-    }
-
-    return buildProgramCalendar(selectedRun, selectedTemplate, state.workoutLogs)
-  }, [selectedRun, selectedTemplate, state.workoutLogs])
 
   const templatesByMode = useMemo(() => {
     const grouped: Record<string, ProgramTemplate[]> = {
@@ -312,41 +274,6 @@ function App() {
       const message =
         error instanceof Error ? error.message : 'Unknown export error.'
       setDataMessage(`Excel export failed: ${message}`)
-    }
-  }
-
-  function handleExportCalendarExcel(): void {
-    if (!programCalendar) {
-      setDataMessage('No calendar to export.')
-      return
-    }
-
-    try {
-      const buffer = exportProgramCalendarToExcel(programCalendar)
-      const fileName = buildExcelCalendarFileName()
-      const blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = fileName
-      link.click()
-      window.setTimeout(() => URL.revokeObjectURL(url), 0)
-
-      const sessionCount = programCalendar.sessions.length
-      const rowCount = programCalendar.sessions.reduce(
-        (total, session) => total + Math.max(1, session.exercises.length),
-        0,
-      )
-
-      setDataMessage(
-        `Exported calendar (${sessionCount} sessions, ${rowCount} rows) to ${fileName}`,
-      )
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown export error.'
-      setDataMessage(`Calendar export failed: ${message}`)
     }
   }
 
@@ -823,14 +750,7 @@ function App() {
 
       {activeTab === 'history' && <HistoryTab />}
 
-      {activeTab === 'calendar' && (
-        <ProgramCalendarView
-          calendar={programCalendar}
-          onExportExcel={handleExportCalendarExcel}
-          exportDisabled={!programCalendar}
-          exportMessage={dataMessage}
-        />
-      )}
+      {activeTab === 'calendar' && <CalendarTab />}
 
       {activeTab === 'stats' && (
         <StatsTab

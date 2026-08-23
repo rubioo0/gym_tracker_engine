@@ -264,6 +264,35 @@ describe('App smoke test', () => {
     expect(await screen.findByText('No active goal yet. Create one on the Автопрофіль tab to start training.')).toBeTruthy()
   })
 
+  it('"Статистика" renders KPIs, goal progress, PRs, and the new per-muscle ACWR section without throwing', async () => {
+    const seedWithLog: PersistedState = {
+      ...SEEDED_STATE_WITH_ACTIVE_GOAL,
+      workoutLogs: [
+        {
+          id: 'w1',
+          completedAt: '2026-08-20T10:00:00.000Z',
+          successful: true,
+          exerciseLogs: [{ exerciseId: 'Barbell_Curl', skipped: false, sets: [{ weightKg: 22.5, reps: 5, role: 'working' }] }],
+        },
+      ],
+    }
+    renderApp(seedWithLog)
+    fireEvent.click(screen.getByRole('button', { name: 'Статистика' }))
+    expect(await screen.findByText('Total workouts')).toBeTruthy()
+    expect(screen.getAllByText('Barbell Curl').length).toBeGreaterThan(0)
+    expect(screen.getByText('Biceps')).toBeTruthy() // per-muscle ACWR section
+    expect(screen.getAllByText(/Acute \(7d\)/).length).toBeGreaterThan(0) // biceps (primary) + forearms (secondary)
+  })
+
+  it('"Статистика" renders empty-state messages on a fresh state without throwing', async () => {
+    renderApp()
+    fireEvent.click(screen.getByRole('button', { name: 'Статистика' }))
+    expect(await screen.findByText('Total workouts')).toBeTruthy()
+    expect(screen.getAllByText('No goals yet.')).toHaveLength(2) // Goal Progress + Baseline sections
+    expect(screen.getByText('No working sets logged yet.')).toBeTruthy()
+    expect(screen.getByText('No logged sets yet.')).toBeTruthy()
+  })
+
   it("Завершити uses the same plan already confirmed on План сесії, and forgets it again once the workout is logged (ready to ask fresh for the next one)", async () => {
     renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
 

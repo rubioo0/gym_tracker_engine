@@ -19,7 +19,7 @@ import { exportWorkoutLogsToExcel, buildExcelLogFileName } from './data/excelLog
 import { importWorkoutLogsFromExcel } from './data/excelLogImport'
 import { getRunnableRunForTemplate, getTemplateById } from './domain/logic'
 import { appReducer } from './domain/reducer'
-import { StatsTab } from './components/stats/StatsTab'
+import { StatsTab as EngineStatsTab } from './components/engine/StatsTab'
 import { PlanEditorModal } from './components/PlanEditorModal'
 import { AIAssistant } from './components/AIAssistant'
 import { ProgressPhotos } from './components/photos/ProgressPhotos'
@@ -752,13 +752,7 @@ function App() {
 
       {activeTab === 'calendar' && <CalendarTab />}
 
-      {activeTab === 'stats' && (
-        <StatsTab
-          workoutLogs={state.workoutLogs}
-          focusRuns={state.focusRuns}
-          programTemplates={state.programTemplates}
-        />
-      )}
+      {activeTab === 'stats' && <EngineStatsTab />}
 
       {activeTab === 'photos' && (
         <section className="panel-grid">

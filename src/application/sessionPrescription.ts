@@ -28,7 +28,8 @@ export interface ExercisePrescription {
   sets: PrescribedSet[]
 }
 
-function mostRecentTopSet(
+/** The most recent (by completedAt, not array position) non-skipped top working set logged for an exercise — shared with anything that needs "what did I last lift for X" (goal-progress views, this module's own prescriptions). */
+export function mostRecentTopSet(
   workoutLogs: readonly WorkoutLog[],
   exerciseId: string,
 ): SetEntry | undefined {

@@ -3,6 +3,7 @@ import { useEngineState } from './useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock } from '../../application/activeGoal'
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
+import { mostRecentTopSet } from '../../application/sessionPrescription'
 import { ExerciseDetailModal } from './ExerciseDetailModal'
 import './EngineTabs.css'
 
@@ -65,7 +66,8 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
     )
   }
 
-  const renewalReason = checkGoalNeedsRenewal(active.goal, active.block, state.profile, null, new Date())
+  const currentWeightKg = mostRecentTopSet(state.workoutLogs, active.goal.exerciseId)?.weightKg ?? null
+  const renewalReason = checkGoalNeedsRenewal(active.goal, active.block, state.profile, currentWeightKg, new Date())
   if (renewalReason) {
     return (
       <section className="panel-grid">

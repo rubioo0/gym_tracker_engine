@@ -15,6 +15,10 @@ import type { ConfirmedSessionInputs, PersistedState } from './state'
  * workout" action, no separate start/draft/discard lifecycle around it.
  * CONFIRM_SESSION_INPUTS is not a lock (see state.ts's doc comment on
  * `confirmedSessionInputs`) — just remembering the last time/gym answer.
+ * END_GOAL is the manual counterpart to the automatic renewal triggers in
+ * goalStatus.ts (deadline passed / target met / focus muscle injured) —
+ * lets the user deliberately abandon the active goal/block instead of
+ * waiting for one of those to fire.
  */
 export type AppAction =
   | { type: 'SET_PROFILE'; profile: UserProfile }
@@ -22,6 +26,7 @@ export type AppAction =
   | { type: 'REPLACE_STATE'; state: PersistedState } // used both for load-on-mount hydration and for import — same "here is the full state" semantics
   | { type: 'LOG_WORKOUT'; workoutLog: WorkoutLog }
   | { type: 'CONFIRM_SESSION_INPUTS'; inputs: ConfirmedSessionInputs }
+  | { type: 'END_GOAL'; endedAt: string }
 
 export function appReducer(state: PersistedState, action: AppAction): PersistedState {
   switch (action.type) {
@@ -42,6 +47,13 @@ export function appReducer(state: PersistedState, action: AppAction): PersistedS
       return { ...state, workoutLogs: [...state.workoutLogs, action.workoutLog], confirmedSessionInputs: null }
     case 'CONFIRM_SESSION_INPUTS':
       return { ...state, confirmedSessionInputs: action.inputs }
+    case 'END_GOAL':
+      return {
+        ...state,
+        specializationBlocks: state.specializationBlocks.map((block) =>
+          block.endedAt === null ? { ...block, endedAt: action.endedAt } : block,
+        ),
+      }
     default:
       return state
   }

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import App from './App'
 import { EngineStateProvider } from './components/engine/EngineStateProvider'
@@ -186,6 +186,44 @@ describe('App smoke test', () => {
       expect(await screen.findByRole('heading', { name: "Before we assemble today's session" })).toBeTruthy()
     },
   )
+
+  it('"Головна" shows engine-driven empty-state guidance on a fresh profile-less state, not the old plannedSession/lastWorkout cards', async () => {
+    renderApp()
+    expect(await screen.findByText('Set up your profile first, on the Автопрофіль tab.')).toBeTruthy()
+    expect(screen.getByText('No logged sessions yet.')).toBeTruthy()
+  })
+
+  it('"Головна" shows the active goal and a real logged session once one exists', async () => {
+    const seedWithLog: PersistedState = {
+      ...SEEDED_STATE_WITH_ACTIVE_GOAL,
+      workoutLogs: [
+        {
+          id: 'w1',
+          completedAt: '2026-08-20T10:00:00.000Z',
+          successful: true,
+          exerciseLogs: [{ exerciseId: 'Barbell_Curl', skipped: false, sets: [{ weightKg: 20, reps: 5, role: 'working' }] }],
+        },
+      ],
+    }
+    renderApp(seedWithLog)
+    expect(await screen.findByText('Barbell Curl')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'View Plan' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Finish / Log Session' })).toBeTruthy()
+    expect(screen.getByText('Successful')).toBeTruthy()
+  })
+
+  it('"Тренування" shows the active goal, and "End this goal early" actually ends it (no active goal afterward)', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Тренування' }))
+    expect(await screen.findByText('Barbell Curl')).toBeTruthy()
+    expect(screen.getByText('No ended goals yet.')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'End this goal early' }))
+    expect(await screen.findByText('No active goal. Set one on the Автопрофіль tab.')).toBeTruthy()
+    expect(screen.getByText('Barbell Curl')).toBeTruthy() // now shows up in history instead
+  })
 
   it("Завершити uses the same plan already confirmed on План сесії, and forgets it again once the workout is logged (ready to ask fresh for the next one)", async () => {
     renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)

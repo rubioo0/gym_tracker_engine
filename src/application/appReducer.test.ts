@@ -118,4 +118,29 @@ describe('appReducer', () => {
     })
     expect(second.confirmedSessionInputs).toEqual({ availableMinutes: 20, noGymToday: true })
   })
+
+  const ACTIVE_BLOCK: SpecializationBlock = {
+    goalId: 'g1',
+    focusMuscle: 'chest',
+    startedAt: '2026-08-01T00:00:00.000Z',
+    endedAt: null,
+  }
+
+  it('END_GOAL sets endedAt on the active (unended) block', () => {
+    const stateWithBlock: PersistedState = { ...INITIAL_STATE, specializationBlocks: [ACTIVE_BLOCK] }
+    const result = appReducer(stateWithBlock, { type: 'END_GOAL', endedAt: '2026-08-20T00:00:00.000Z' })
+    expect(result.specializationBlocks).toEqual([{ ...ACTIVE_BLOCK, endedAt: '2026-08-20T00:00:00.000Z' }])
+  })
+
+  it('END_GOAL does not touch an already-ended block (boundary condition)', () => {
+    const endedBlock: SpecializationBlock = { ...ACTIVE_BLOCK, endedAt: '2026-08-10T00:00:00.000Z' }
+    const stateWithEndedBlock: PersistedState = { ...INITIAL_STATE, specializationBlocks: [endedBlock] }
+    const result = appReducer(stateWithEndedBlock, { type: 'END_GOAL', endedAt: '2026-08-20T00:00:00.000Z' })
+    expect(result.specializationBlocks).toEqual([endedBlock])
+  })
+
+  it('END_GOAL is a no-op when there is no block at all (boundary condition)', () => {
+    const result = appReducer(INITIAL_STATE, { type: 'END_GOAL', endedAt: '2026-08-20T00:00:00.000Z' })
+    expect(result.specializationBlocks).toEqual([])
+  })
 })

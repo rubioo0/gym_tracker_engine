@@ -3,7 +3,7 @@ import { useEngineState } from './useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock } from '../../application/activeGoal'
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
-import { prescribeSession } from '../../application/sessionPrescription'
+import { prescribeSession, mostRecentTopSet } from '../../application/sessionPrescription'
 import { getExerciseById } from '../../domain/exerciseLibrary/exerciseLibrary'
 import type { ExerciseDifficulty, SetEntry, WorkoutLog } from '../../domain/workoutLog/types'
 
@@ -77,7 +77,8 @@ export function FinishSessionTab() {
     )
   }
 
-  const renewalReason = checkGoalNeedsRenewal(active.goal, active.block, state.profile, null, new Date())
+  const currentWeightKg = mostRecentTopSet(state.workoutLogs, active.goal.exerciseId)?.weightKg ?? null
+  const renewalReason = checkGoalNeedsRenewal(active.goal, active.block, state.profile, currentWeightKg, new Date())
   if (renewalReason) {
     return (
       <section className="panel-grid">

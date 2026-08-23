@@ -22,7 +22,6 @@ import {
 } from './data/excelCalendarExport'
 import { importWorkoutLogsFromExcel } from './data/excelLogImport'
 import {
-  buildPlannedSession,
   buildProgramCalendar,
   getActiveRuns,
   getRunnableRunForTemplate,
@@ -39,13 +38,16 @@ import { AIGeneratorPanel } from './components/programs/AIGeneratorPanel'
 import type {
   ProgramMode,
   ProgramTemplate,
-  RunStatus,
   TrackType,
 } from './domain/types'
 import { loadAISettings } from './services/geminiService'
 import { SetupTab } from './components/engine/SetupTab'
 import { TodayTab } from './components/engine/TodayTab'
 import { FinishSessionTab } from './components/engine/FinishSessionTab'
+import { HomeTab } from './components/engine/HomeTab'
+import { FocusTab } from './components/engine/FocusTab'
+import { useEngineState } from './components/engine/useEngineState'
+import { getActiveGoalAndBlock, countSessionsInBlock } from './application/activeGoal'
 import './App.css'
 
 type AppTab =
@@ -75,15 +77,6 @@ const tabs: { id: AppTab; label: string }[] = [
   { id: 'engineSetup', label: 'Автопрофіль' },
 ]
 
-const statusOrder: RunStatus[] = ['active', 'paused', 'completed', 'archived']
-
-const statusLabel: Record<RunStatus, string> = {
-  active: 'Активне',
-  paused: 'На паузі',
-  completed: 'Завершено',
-  archived: 'Архівовано',
-}
-
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString([], {
     year: 'numeric',
@@ -92,20 +85,6 @@ function formatDateTime(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   })
-}
-
-function formatModeLabel(templates: ProgramTemplate[]): string {
-  if (templates.length === 0) {
-    return 'На паузі'
-  }
-
-  const modes = Array.from(new Set(templates.map((template) => template.mode)))
-  if (modes.length === 1) {
-    const mode = modes[0]
-    return mode.charAt(0).toUpperCase() + mode.slice(1)
-  }
-
-  return 'Змішана'
 }
 
 function rewriteCsvSourceFileName(csvText: string, sourceFileName: string): string {
@@ -118,6 +97,12 @@ function rewriteCsvSourceFileName(csvText: string, sourceFileName: string): stri
 
 function App() {
   const [state, dispatch] = useReducer(appReducer, undefined, loadAppState)
+  const { state: engineState } = useEngineState()
+  const engineActive = useMemo(() => getActiveGoalAndBlock(engineState), [engineState])
+  const engineSessionsInBlock = useMemo(
+    () => (engineActive ? countSessionsInBlock(engineState.workoutLogs, engineActive.block) : 0),
+    [engineActive, engineState.workoutLogs],
+  )
   const [activeTab, setActiveTab] = useState<AppTab>('home')
   const [importText, setImportText] = useState('')
   const [dataMessage, setDataMessage] = useState('')
@@ -133,7 +118,6 @@ function App() {
   const [csvDurationWeeks, setCsvDurationWeeks] = useState(8)
   const [csvHardOverwrite, setCsvHardOverwrite] = useState(false)
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([])
-  const [selectedRunIds, setSelectedRunIds] = useState<string[]>([])
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
   const [createProgramOpen, setCreateProgramOpen] = useState(false)
   const [aiGenTemplate, setAiGenTemplate] = useState<ProgramTemplate | null>(null)
@@ -162,14 +146,6 @@ function App() {
     return getTemplateById(state.programTemplates, selectedRun.templateId) ?? null
   }, [selectedRun, state.programTemplates])
 
-  const plannedSession = useMemo(() => {
-    if (!selectedRun || !selectedTemplate) {
-      return null
-    }
-
-    return buildPlannedSession(selectedRun, selectedTemplate, state.workoutLogs)
-  }, [selectedRun, selectedTemplate, state.workoutLogs])
-
   const programCalendar = useMemo(() => {
     if (!selectedRun || !selectedTemplate) {
       return null
@@ -177,27 +153,6 @@ function App() {
 
     return buildProgramCalendar(selectedRun, selectedTemplate, state.workoutLogs)
   }, [selectedRun, selectedTemplate, state.workoutLogs])
-
-  const activeTemplates = activeRuns
-    .map((run) => getTemplateById(state.programTemplates, run.templateId))
-    .filter((template): template is ProgramTemplate => Boolean(template))
-
-  const modeLabel = formatModeLabel(activeTemplates)
-
-  const runsByStatus = statusOrder.reduce<Record<RunStatus, typeof state.focusRuns>>(
-    (acc, status) => {
-      acc[status] = state.focusRuns
-        .filter((run) => run.status === status)
-        .sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1))
-      return acc
-    },
-    {
-      active: [],
-      paused: [],
-      completed: [],
-      archived: [],
-    },
-  )
 
   const templatesByMode = useMemo(() => {
     const grouped: Record<string, ProgramTemplate[]> = {
@@ -218,8 +173,6 @@ function App() {
     () => new Set(selectedTemplateIds),
     [selectedTemplateIds],
   )
-
-  const selectedRunSet = useMemo(() => new Set(selectedRunIds), [selectedRunIds])
 
   const csvImportPreview = useMemo(() => {
     if (!csvRawText.trim()) {
@@ -249,12 +202,6 @@ function App() {
     state.programTemplates,
   ])
 
-  const selectedRunCount = useMemo(
-    () => state.focusRuns.filter((run) => selectedRunSet.has(run.id)).length,
-    [state.focusRuns, selectedRunSet],
-  )
-
-  const lastWorkout = state.workoutLogs[0] ?? null
   const aiSettings = loadAISettings()
 
   function handleTabChange(tab: AppTab): void {
@@ -288,11 +235,6 @@ function App() {
       now: new Date().toISOString(),
     })
     setActiveTab('session')
-  }
-
-  function handlePause(runId: string): void {
-    const reason = window.prompt('Pause reason (optional):') ?? undefined
-    dispatch({ type: 'pauseRun', runId, reason })
   }
 
   function handleResetAllData(): void {
@@ -351,55 +293,6 @@ function App() {
     })
     setSelectedTemplateIds([])
     setDataMessage(`Deleted ${selectedTemplates.length} selected program(s).`)
-  }
-
-  function handleDeleteRun(runId: string, templateName: string): void {
-    const relatedLogCount = state.workoutLogs.filter((log) => log.runId === runId).length
-    const confirmMessage =
-      relatedLogCount > 0
-        ? `Delete run "${templateName}" and ${relatedLogCount} related log(s)? This cannot be undone.`
-        : `Delete run "${templateName}"? This cannot be undone.`
-
-    const approved = window.confirm(confirmMessage)
-    if (!approved) {
-      return
-    }
-
-    dispatch({ type: 'deleteRun', runId })
-    setSelectedRunIds((previous) =>
-      previous.filter((selectedId) => selectedId !== runId),
-    )
-    setDataMessage(`Deleted run "${templateName}".`)
-  }
-
-  function handleBulkDeleteRuns(): void {
-    const selectedRuns = state.focusRuns.filter((run) => selectedRunSet.has(run.id))
-
-    if (selectedRuns.length === 0) {
-      return
-    }
-
-    const selectedRunIdSet = new Set(selectedRuns.map((run) => run.id))
-    const relatedLogCount = state.workoutLogs.filter((log) =>
-      selectedRunIdSet.has(log.runId),
-    ).length
-
-    const confirmMessage =
-      relatedLogCount > 0
-        ? `Delete ${selectedRuns.length} selected run(s) and ${relatedLogCount} related log(s)? This cannot be undone.`
-        : `Delete ${selectedRuns.length} selected run(s)? This cannot be undone.`
-
-    const approved = window.confirm(confirmMessage)
-    if (!approved) {
-      return
-    }
-
-    dispatch({
-      type: 'deleteRuns',
-      runIds: selectedRuns.map((run) => run.id),
-    })
-    setSelectedRunIds([])
-    setDataMessage(`Deleted ${selectedRuns.length} selected run(s).`)
   }
 
   function handleExportLogsExcel(): void {
@@ -739,16 +632,16 @@ function App() {
 
         <div className="header-kpis">
           <div className="kpi">
-            <span>Current Mode</span>
-            <strong>{modeLabel}</strong>
+            <span>Focus muscle</span>
+            <strong>{engineActive ? engineActive.block.focusMuscle : 'None'}</strong>
           </div>
           <div className="kpi">
-            <span>Active Tracks</span>
-            <strong>{activeRuns.length}</strong>
+            <span>Sessions this block</span>
+            <strong>{engineSessionsInBlock}</strong>
           </div>
           <div className="kpi">
             <span>History Logs</span>
-            <strong>{state.workoutLogs.length}</strong>
+            <strong>{engineState.workoutLogs.length}</strong>
           </div>
         </div>
       </header>
@@ -767,69 +660,7 @@ function App() {
       </nav>
 
       {activeTab === 'home' && (
-        <section className="panel-grid">
-          <article className="card card-primary">
-            <h2>Next Session</h2>
-            {plannedSession ? (
-              <>
-                <p className="next-session-title">{plannedSession.session.name}</p>
-                <p>
-                  Track: <strong>{plannedSession.run.track}</strong> | Focus:{' '}
-                  <strong>{plannedSession.run.focusTarget}</strong>
-                </p>
-                <p>
-                  Completed sessions in run:{' '}
-                  <strong>{plannedSession.run.completedSessionCount}</strong>
-                </p>
-                <p>
-                  Exercises today: <strong>{plannedSession.exercises.length}</strong>
-                </p>
-                <div className="action-row">
-                  <button type="button" onClick={() => handleTabChange('session')}>
-                    View Plan
-                  </button>
-                  <button type="button" onClick={() => handleTabChange('session')}>
-                    Start Session
-                  </button>
-                  <button type="button" onClick={() => handleTabChange('log')}>
-                    Finish / Log Session
-                  </button>
-                  <button type="button" onClick={() => handleTabChange('runs')}>
-                    Пауза / Перейти на програму
-                  </button>
-                </div>
-              </>
-            ) : (
-              <p>Немає активного тренування. Розпочніть з Програм / Тренувань.</p>
-            )}
-          </article>
-
-          <article className="card">
-            <h2>Остання завершена сесія</h2>
-            {lastWorkout ? (
-              <>
-                <p className="next-session-title">{lastWorkout.sessionName}</p>
-                <p>
-                  {formatDateTime(lastWorkout.completedAt)} | Track: {lastWorkout.track}
-                </p>
-                <p>
-                  Завершені вправи:{' '}
-                  {
-                    lastWorkout.exerciseLogs.filter(
-                      (exerciseLog) => exerciseLog.completed && !exerciseLog.skipped,
-                    ).length
-                  }
-                </p>
-                {lastWorkout.sessionNote ? (
-                  <p className="note">Note: {lastWorkout.sessionNote}</p>
-                ) : null}
-              </>
-            ) : (
-              <p>No logged sessions yet.</p>
-            )}
-          </article>
-
-        </section>
+        <HomeTab onViewPlan={() => handleTabChange('session')} onGoToLog={() => handleTabChange('log')} />
       )}
 
       {activeTab === 'programs' && (
@@ -993,195 +824,7 @@ function App() {
         </section>
       )}
 
-      {activeTab === 'runs' && (
-        <section className="panel-grid">
-          <article className="card card-wide">
-            <h2>Тренування фокусу</h2>
-            <div className="action-row">
-              <button
-                type="button"
-                className="btn-danger"
-                onClick={handleBulkDeleteRuns}
-                disabled={selectedRunCount === 0}
-              >
-                Delete selected ({selectedRunCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedRunIds([])}
-                disabled={selectedRunCount === 0}
-              >
-                Clear selection
-              </button>
-            </div>
-
-            {statusOrder.map((status) => {
-              const statusRuns = runsByStatus[status]
-              const statusRunIds = new Set(statusRuns.map((run) => run.id))
-              const allStatusSelected =
-                statusRuns.length > 0 &&
-                statusRuns.every((run) => selectedRunSet.has(run.id))
-              const hasStatusSelection = statusRuns.some((run) =>
-                selectedRunSet.has(run.id),
-              )
-
-              return (
-                <div key={status} className="template-group">
-                  <div className="template-group-header">
-                    <h3>
-                      {statusLabel[status]} ({statusRuns.length})
-                    </h3>
-                    {statusRuns.length > 0 ? (
-                      <div className="action-row">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSelectedRunIds((previous) => {
-                              const next = new Set(previous)
-                              statusRuns.forEach((run) => next.add(run.id))
-                              return Array.from(next)
-                            })
-                          }
-                          disabled={allStatusSelected}
-                        >
-                          Select all
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSelectedRunIds((previous) =>
-                              previous.filter((selectedId) => !statusRunIds.has(selectedId)),
-                            )
-                          }
-                          disabled={!hasStatusSelection}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {statusRuns.length === 0 ? (
-                    <p className="muted">Немає тренувань у цьому статусі.</p>
-                  ) : (
-                    <ul className="list-plain">
-                      {statusRuns.map((run) => (
-                        <li key={run.id} className="item-row item-row-stack">
-                          <div>
-                            <label className="item-select-label">
-                              <input
-                                type="checkbox"
-                                checked={selectedRunSet.has(run.id)}
-                                onChange={(event) =>
-                                  setSelectedRunIds((previous) => {
-                                    if (event.target.checked) {
-                                      return previous.includes(run.id)
-                                        ? previous
-                                        : [...previous, run.id]
-                                    }
-
-                                    return previous.filter(
-                                      (selectedId) => selectedId !== run.id,
-                                    )
-                                  })
-                                }
-                              />
-                              <strong>{run.templateName}</strong>
-                            </label>
-                            <div className="muted">
-                              Напрямок: {run.track} | Фокус: {run.focusTarget} | Розпочато:{' '}
-                              {formatDateTime(run.startedAt)}
-                            </div>
-                            <div className="muted">
-                              Завершені сесії: {run.completedSessionCount} | Наступна позиція:{' '}
-                              {run.nextSessionIndex + 1}
-                            </div>
-                            {run.pauseReason ? (
-                              <div className="note">Pause reason: {run.pauseReason}</div>
-                            ) : null}
-                          </div>
-
-                          <div className="action-row">
-                            <button
-                              type="button"
-                              onClick={() => dispatch({ type: 'setSelectedRun', runId: run.id })}
-                            >
-                              Select
-                            </button>
-
-                            {run.status === 'active' ? (
-                              <>
-                                <button type="button" onClick={() => handlePause(run.id)}>
-                                  Pause
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => dispatch({ type: 'completeRun', runId: run.id })}
-                                >
-                                  Complete
-                                </button>
-                              </>
-                            ) : null}
-
-                            {run.status === 'paused' ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => dispatch({ type: 'resumeRun', runId: run.id })}
-                                >
-                                  Resume
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => dispatch({ type: 'switchRun', runId: run.id })}
-                                >
-                                  Switch To This
-                                </button>
-                              </>
-                            ) : null}
-
-                            {(run.status === 'active' || run.status === 'paused') && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  dispatch({
-                                    type: 'restartRun',
-                                    runId: run.id,
-                                    now: new Date().toISOString(),
-                                  })
-                                }
-                              >
-                                Restart
-                              </button>
-                            )}
-
-                            {run.status !== 'archived' ? (
-                              <button
-                                type="button"
-                                onClick={() => dispatch({ type: 'archiveRun', runId: run.id })}
-                              >
-                                Archive
-                              </button>
-                            ) : null}
-
-                            <button
-                              type="button"
-                              className="btn-danger"
-                              onClick={() => handleDeleteRun(run.id, run.templateName)}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )
-            })}
-          </article>
-        </section>
-      )}
+      {activeTab === 'runs' && <FocusTab />}
 
       {activeTab === 'session' && <TodayTab onGoToFinish={() => setActiveTab('log')} />}
 

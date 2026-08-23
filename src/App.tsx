@@ -46,6 +46,7 @@ import { TodayTab } from './components/engine/TodayTab'
 import { FinishSessionTab } from './components/engine/FinishSessionTab'
 import { HomeTab } from './components/engine/HomeTab'
 import { FocusTab } from './components/engine/FocusTab'
+import { HistoryTab } from './components/engine/HistoryTab'
 import { useEngineState } from './components/engine/useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock } from './application/activeGoal'
 import './App.css'
@@ -76,16 +77,6 @@ const tabs: { id: AppTab; label: string }[] = [
   { id: 'data', label: 'Дані' },
   { id: 'engineSetup', label: 'Автопрофіль' },
 ]
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString([], {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 function rewriteCsvSourceFileName(csvText: string, sourceFileName: string): string {
   const replacement = `training-os-metadata,source-file-name,${sourceFileName}`
@@ -830,64 +821,7 @@ function App() {
 
       {activeTab === 'log' && <FinishSessionTab />}
 
-      {activeTab === 'history' && (
-        <section className="panel-grid">
-          <article className="card card-wide">
-            <h2>History</h2>
-            <div className="action-row">
-              <button
-                type="button"
-                onClick={handleExportLogsExcel}
-                disabled={state.workoutLogs.length === 0}
-              >
-                Export History to Excel
-              </button>
-            </div>
-            {dataMessage ? <p className="note">{dataMessage}</p> : null}
-            {state.workoutLogs.length === 0 ? (
-              <p>No logs yet.</p>
-            ) : (
-              <ul className="list-plain">
-                {state.workoutLogs.map((log) => (
-                  <li key={log.id} className="item-row item-row-stack">
-                    <div>
-                      <strong>{log.sessionName}</strong>
-                      <div className="muted">
-                        {formatDateTime(log.completedAt)} | Track: {log.track}
-                      </div>
-                      <div className="muted">
-                        Completed:{' '}
-                        {
-                          log.exerciseLogs.filter(
-                            (exerciseLog) => exerciseLog.completed && !exerciseLog.skipped,
-                          ).length
-                        }
-                        /{log.exerciseLogs.length}
-                      </div>
-                      {log.sessionNote ? <div className="note">{log.sessionNote}</div> : null}
-                    </div>
-
-                    <div className="history-exercises">
-                      {log.exerciseLogs.map((exerciseLog) => (
-                        <div key={exerciseLog.exerciseId} className="history-row">
-                          <span>{exerciseLog.exerciseName}</span>
-                          <span>
-                            {exerciseLog.skipped
-                              ? 'skipped'
-                              : exerciseLog.actualWeight !== undefined
-                                ? `${exerciseLog.actualWeight} ${exerciseLog.weightUnit ?? ''}`.trim()
-                                : 'done'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </article>
-        </section>
-      )}
+      {activeTab === 'history' && <HistoryTab />}
 
       {activeTab === 'calendar' && (
         <ProgramCalendarView

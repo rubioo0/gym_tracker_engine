@@ -225,6 +225,32 @@ describe('App smoke test', () => {
     expect(screen.getByText('Barbell Curl')).toBeTruthy() // now shows up in history instead
   })
 
+  it('"Історія" lists a seeded workout log (engine data, not the old legacy WorkoutLog model)', async () => {
+    const seedWithLog: PersistedState = {
+      ...SEEDED_STATE_WITH_ACTIVE_GOAL,
+      workoutLogs: [
+        {
+          id: 'w1',
+          completedAt: '2026-08-20T10:00:00.000Z',
+          successful: true,
+          note: 'Felt strong',
+          exerciseLogs: [{ exerciseId: 'Barbell_Curl', skipped: false, sets: [{ weightKg: 20, reps: 5, role: 'working' }] }],
+        },
+      ],
+    }
+    renderApp(seedWithLog)
+    fireEvent.click(screen.getByRole('button', { name: 'Історія' }))
+    expect(await screen.findByText('Barbell Curl')).toBeTruthy()
+    expect(screen.getByText('Felt strong')).toBeTruthy()
+    expect(screen.getByText('20kg×5')).toBeTruthy()
+  })
+
+  it('"Історія" shows "No logs yet." on a fresh state', async () => {
+    renderApp()
+    fireEvent.click(screen.getByRole('button', { name: 'Історія' }))
+    expect(await screen.findByText('No logs yet.')).toBeTruthy()
+  })
+
   it("Завершити uses the same plan already confirmed on План сесії, and forgets it again once the workout is logged (ready to ask fresh for the next one)", async () => {
     renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
 

@@ -13,6 +13,8 @@ import {
 import { getActiveGoalAndBlock } from '../../application/activeGoal'
 import { isPersistedState } from '../../application/state'
 import { suggestStartingWeightFromOldApp } from '../../application/oldAppHistory'
+import { buildFocusHistorySeed } from '../../application/focusHistory'
+import { pickNextFocus } from '../../domain/specialization/specialization'
 import type { WorkoutLog as OldAppWorkoutLog } from '../../domain/types'
 import { ExerciseVisual } from './ExerciseVisual'
 import './EngineTabs.css'
@@ -199,9 +201,17 @@ function GoalForm({
   profile: UserProfile
   oldWorkoutLogs: readonly OldAppWorkoutLog[]
 }) {
-  const { dispatch } = useEngineState()
+  const { state, dispatch } = useEngineState()
 
-  const [muscleGroupId, setMuscleGroupId] = useState<MuscleGroupId>(MUSCLE_GROUPS[0].id)
+  // Defaults the picker to the least-recently-trained eligible muscle
+  // (application/focusHistory.ts + domain/specialization.ts's pickNextFocus,
+  // built and tested but never wired into any UI until now) -- still just a
+  // suggestion: the dropdown right below remains a free, un-gated override.
+  const suggestedFocusMuscle = useMemo(
+    () => pickNextFocus(buildFocusHistorySeed(state.specializationBlocks, profile.injuredMuscles)) ?? MUSCLE_GROUPS[0].id,
+    [state.specializationBlocks, profile.injuredMuscles],
+  )
+  const [muscleGroupId, setMuscleGroupId] = useState<MuscleGroupId>(suggestedFocusMuscle)
   const recommended = useMemo(() => recommendExerciseForMuscle(muscleGroupId), [muscleGroupId])
   const exercisesForMuscle = useMemo(
     () => [...getExercisesWithPrimaryMuscle(muscleGroupId)].sort((a, b) => a.nameEn.localeCompare(b.nameEn)),
@@ -292,6 +302,10 @@ function GoalForm({
 
   return (
     <div className="template-group">
+      <p className="note">
+        Suggested next focus (least recently trained):{' '}
+        <strong>{MUSCLE_GROUPS.find((g) => g.id === suggestedFocusMuscle)?.labelEn ?? suggestedFocusMuscle}</strong>
+      </p>
       <label className="stacked-field">
         Muscle group
         <select value={muscleGroupId} onChange={(e) => handleMuscleChange(e.target.value as MuscleGroupId)}>

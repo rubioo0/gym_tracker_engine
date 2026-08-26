@@ -143,6 +143,30 @@ describe('App smoke test', () => {
     expect(screen.getByRole('button', { name: 'Save profile' })).toBeTruthy()
   })
 
+  it('"Автопрофіль" suggests the least-recently-trained muscle for a new goal, not just the first in the list (pickNextFocus wiring)', async () => {
+    const seedState: PersistedState = {
+      profile: { deficitLabel: 'notDieting', sessionsPerWeek: 3, injuredMuscles: [], experienceByMuscle: {} },
+      goals: [],
+      // "chest" (MUSCLE_GROUPS[0], the old default) has an ended block, so
+      // it's no longer "never focused" -- "back" (MUSCLE_GROUPS[1], still
+      // never focused) should now be suggested instead.
+      specializationBlocks: [
+        { goalId: 'old-goal', focusMuscle: 'chest', startedAt: '2026-07-01T00:00:00.000Z', endedAt: '2026-07-15T00:00:00.000Z' },
+      ],
+      workoutLogs: [],
+      weighIns: [],
+      circumferenceMeasurements: [],
+      confirmedSessionInputs: null,
+    }
+    renderApp(seedState)
+    fireEvent.click(screen.getByRole('button', { name: 'Автопрофіль' }))
+    expect(await screen.findByText(/Suggested next focus/)).toBeTruthy()
+    // "Back" alone is ambiguous (it's also a <select> option) -- check the
+    // actual wiring instead: the muscle-group picker's initial value.
+    const muscleSelect = screen.getByLabelText('Muscle group') as HTMLSelectElement
+    expect(muscleSelect.value).toBe('back')
+  })
+
   it('"Дані" (Data) tab renders without throwing', () => {
     renderApp()
     fireEvent.click(screen.getByRole('button', { name: 'Дані' }))
@@ -331,6 +355,7 @@ describe('App smoke test', () => {
     // Barbell_Curl's primary muscle, one working set logged yesterday ->
     // 1 hard set, safely inside the 7-day acute window.
     expect(screen.getByText(/Acute \(7d\): 1 hard sets/)).toBeTruthy()
+    expect(screen.getAllByText(/Safe weekly ceiling: [\d.]+ sets/).length).toBeGreaterThan(0)
   })
 
   it('"Статистика" renders empty-state messages on a fresh state without throwing', async () => {
@@ -425,4 +450,33 @@ it('"Фото" (Photos) tab renders without throwing', async () => {
       expect(await screen.findByText(/History \(1 session/)).toBeTruthy()
     },
   )
+
+  it('shows a deload suggestion on План сесії after 2+ consecutive held sessions for the goal exercise (shouldDeloadGoalExercise wiring)', async () => {
+    const targetReps = 5 // TARGET_REPS_BY_EMPHASIS.strength -- SEEDED_STATE_WITH_ACTIVE_GOAL's goal is 'strength'
+    const seedWithHeldLogs: PersistedState = {
+      ...SEEDED_STATE_WITH_ACTIVE_GOAL,
+      workoutLogs: [
+        {
+          id: 'w1',
+          completedAt: '2026-08-10T10:00:00.000Z',
+          successful: true,
+          exerciseLogs: [
+            { exerciseId: 'Barbell_Curl', skipped: false, sets: [{ weightKg: 20, reps: targetReps - 1, role: 'working' }] },
+          ],
+        },
+        {
+          id: 'w2',
+          completedAt: '2026-08-15T10:00:00.000Z',
+          successful: true,
+          exerciseLogs: [
+            { exerciseId: 'Barbell_Curl', skipped: false, sets: [{ weightKg: 20, reps: targetReps - 1, role: 'working' }] },
+          ],
+        },
+      ],
+    }
+    renderApp(seedWithHeldLogs)
+    fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Assemble my session' }))
+    expect(await screen.findByText(/Deload suggested/)).toBeTruthy()
+  })
 })

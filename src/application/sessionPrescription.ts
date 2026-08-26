@@ -1,9 +1,20 @@
 import type { AssembledExerciseSlot } from './sessionOrchestration'
 import type { ExerciseLog, SetEntry, WorkoutLog } from '../domain/workoutLog/types'
 import type { Goal, TrainingEmphasis } from '../domain/goals/types'
+import type { MuscleGroupId } from '../domain/muscles/muscleTaxonomy'
 import { rampSets, nextWorkingWeight } from '../domain/apre/apre'
 import { topSet } from '../domain/workoutLog/workoutLog'
-import { countConsecutiveHeldSessions, type ApreSessionOutcome } from '../domain/acwr/acwr'
+import {
+  countConsecutiveHeldSessions,
+  shouldDeload,
+  acwr,
+  DETRAINING_RISK_THRESHOLD_DAYS,
+  type ApreSessionOutcome,
+} from '../domain/acwr/acwr'
+import { suggestResumptionWeight } from '../domain/autoCorrection/autoCorrection'
+import { buildMuscleLoadEntries } from './muscleLoadHistory'
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 /**
  * Target rep count per training emphasis — the locked "training-emphasis
@@ -29,11 +40,15 @@ export interface ExercisePrescription {
   sets: PrescribedSet[]
 }
 
-/** The most recent (by completedAt, not array position) non-skipped top working set logged for an exercise — shared with anything that needs "what did I last lift for X" (goal-progress views, this module's own prescriptions). */
-export function mostRecentTopSet(
+/** mostRecentTopSet's result plus when it happened — the date is needed to detect a returning-after-a-gap resumption case, which weight alone can't tell you. */
+export interface RecentTopSetEntry extends SetEntry {
+  completedAt: string
+}
+
+function mostRecentTopSetEntry(
   workoutLogs: readonly WorkoutLog[],
   exerciseId: string,
-): SetEntry | undefined {
+): RecentTopSetEntry | undefined {
   let bestLog: WorkoutLog | undefined
   let bestExerciseLog: ExerciseLog | undefined
   for (const log of workoutLogs) {
@@ -44,7 +59,33 @@ export function mostRecentTopSet(
       bestExerciseLog = exerciseLog
     }
   }
-  return bestExerciseLog ? topSet(bestExerciseLog) : undefined
+  if (!bestLog || !bestExerciseLog) return undefined
+  const top = topSet(bestExerciseLog)
+  return top ? { ...top, completedAt: bestLog.completedAt } : undefined
+}
+
+/** The most recent (by completedAt, not array position) non-skipped top working set logged for an exercise — shared with anything that needs "what did I last lift for X" (goal-progress views, this module's own prescriptions). */
+export function mostRecentTopSet(
+  workoutLogs: readonly WorkoutLog[],
+  exerciseId: string,
+): SetEntry | undefined {
+  return mostRecentTopSetEntry(workoutLogs, exerciseId)
+}
+
+export interface PrescriptionOptions {
+  /** Defaults to now — overridable for deterministic tests and calendar-preview simulation. */
+  asOf?: Date
+  /**
+   * True to suppress the goal exercise's progression this session (computed
+   * by the caller via shouldDeloadGoalExercise below, which needs the FULL
+   * workout history for accurate ACWR windows — deliberately not computed
+   * inside this function, since `workoutLogs` here is often block-scoped by
+   * the caller per the Phase 0 fix, and block boundaries have nothing to do
+   * with real physical fatigue). Only affects the goal-priority exercise;
+   * maintenance exercises were never part of the APRE progression system
+   * shouldDeload governs (see acwr.md's deload-trigger section).
+   */
+  deloadGoalExercise?: boolean
 }
 
 /**
@@ -59,25 +100,51 @@ export function mostRecentTopSet(
  * falls back to the goal's own startingWeightKg (that's literally what the
  * user declared); anything else honestly falls back to 0 rather than
  * guessing — same "no history, enter manually" pattern as the Setup form.
+ *
+ * Two corrections layered onto the plain APRE math for the goal exercise,
+ * both previously built and tested but never wired into any real
+ * prescription (see AUDIT.md's "autonomous layer" finding):
+ * - Returning after a real gap (>= DETRAINING_RISK_THRESHOLD_DAYS since the
+ *   last logged session): uses domain/autoCorrection/autoCorrection.ts's
+ *   suggestResumptionWeight instead of naively applying nextWorkingWeight to
+ *   a stale top set.
+ * - deloadGoalExercise (see PrescriptionOptions): holds at the last logged
+ *   weight instead of progressing, even if the last session hit target reps
+ *   — no new formula invented here, this just gates whether the normal
+ *   progression call happens at all.
  */
 export function prescribeExercise(
   slot: AssembledExerciseSlot,
   goal: Goal,
   workoutLogs: readonly WorkoutLog[],
+  options: PrescriptionOptions = {},
 ): ExercisePrescription {
   const targetReps = TARGET_REPS_BY_EMPHASIS[goal.trainingEmphasis]
-  const previousTopSet = mostRecentTopSet(workoutLogs, slot.exercise.id)
+  const previousTopSet = mostRecentTopSetEntry(workoutLogs, slot.exercise.id)
   const workingSetCount = Math.max(slot.sets, 1)
 
   if (slot.isGoalPriority) {
-    const workingWeightKg = previousTopSet
-      ? nextWorkingWeight({
-          previousWorkingWeightKg: previousTopSet.weightKg,
-          targetReps,
-          actualReps: previousTopSet.reps,
-          incrementKg: WEIGHT_INCREMENT_KG,
-        })
-      : goal.startingWeightKg
+    const asOf = options.asOf ?? new Date()
+    let workingWeightKg: number
+
+    if (!previousTopSet) {
+      workingWeightKg = goal.startingWeightKg
+    } else if (options.deloadGoalExercise) {
+      workingWeightKg = previousTopSet.weightKg
+    } else {
+      const daysSinceLastSession = Math.floor(
+        (asOf.getTime() - new Date(previousTopSet.completedAt).getTime()) / MS_PER_DAY,
+      )
+      workingWeightKg =
+        daysSinceLastSession >= DETRAINING_RISK_THRESHOLD_DAYS
+          ? suggestResumptionWeight(previousTopSet.weightKg, daysSinceLastSession).suggestedWeightKg
+          : nextWorkingWeight({
+              previousWorkingWeightKg: previousTopSet.weightKg,
+              targetReps,
+              actualReps: previousTopSet.reps,
+              incrementKg: WEIGHT_INCREMENT_KG,
+            })
+    }
 
     const ramps: PrescribedSet[] = rampSets(workingWeightKg).map((r) => ({
       weightKg: r.weightKg,
@@ -125,6 +192,31 @@ export function prescribeSession(
   slots: readonly AssembledExerciseSlot[],
   goal: Goal,
   workoutLogs: readonly WorkoutLog[],
+  options: PrescriptionOptions = {},
 ): ExercisePrescription[] {
-  return slots.map((slot) => prescribeExercise(slot, goal, workoutLogs))
+  return slots.map((slot) => prescribeExercise(slot, goal, workoutLogs, options))
+}
+
+/**
+ * Implements the locked deload-trigger decision (domain/acwr/acwr.ts's
+ * shouldDeload, "ACWR danger zone OR 2+ consecutive held sessions") for a
+ * goal's focus muscle — composes it with real data for the first time
+ * anywhere in the app. Two different history slices are deliberately
+ * required: `acwrWorkoutLogs` should be the FULL, unscoped history (real
+ * physical fatigue doesn't reset at a block boundary), while
+ * `blockWorkoutLogs` should be scoped to the active block (per the Phase 0
+ * fix — a previous block's held streak isn't this block's stalled
+ * progress).
+ */
+export function shouldDeloadGoalExercise(
+  acwrWorkoutLogs: readonly WorkoutLog[],
+  blockWorkoutLogs: readonly WorkoutLog[],
+  muscleGroupId: MuscleGroupId,
+  goal: Goal,
+  asOf: Date = new Date(),
+): boolean {
+  const loadEntries = buildMuscleLoadEntries(acwrWorkoutLogs, muscleGroupId)
+  const ratio = acwr(loadEntries, asOf)
+  const heldStreak = goalHeldStreak(blockWorkoutLogs, goal)
+  return shouldDeload(ratio, heldStreak)
 }

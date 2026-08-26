@@ -3,7 +3,7 @@ import { useEngineState } from './useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock, workoutLogsInBlock } from '../../application/activeGoal'
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
-import { prescribeSession, mostRecentTopSet } from '../../application/sessionPrescription'
+import { prescribeSession, mostRecentTopSet, shouldDeloadGoalExercise } from '../../application/sessionPrescription'
 import { recentExerciseHistory } from '../../application/exerciseHistory'
 import { getExerciseById, isPerHandEquipment } from '../../domain/exerciseLibrary/exerciseLibrary'
 import type { ExerciseDifficulty, SetEntry, WorkoutLog } from '../../domain/workoutLog/types'
@@ -110,8 +110,10 @@ export function FinishSessionTab() {
     availableMinutes: effectiveAvailableMinutes,
   })
 
+  const deloadGoalExercise = shouldDeloadGoalExercise(state.workoutLogs, blockWorkoutLogs, active.block.focusMuscle, active.goal)
+
   function seedEdits(): EditableExerciseLog[] {
-    const prescriptions = prescribeSession(slots, active!.goal, blockWorkoutLogs)
+    const prescriptions = prescribeSession(slots, active!.goal, blockWorkoutLogs, { deloadGoalExercise })
     return prescriptions.map((p) => ({
       exerciseId: p.exerciseId,
       skipped: false,
@@ -151,6 +153,12 @@ export function FinishSessionTab() {
       <article className="card card-wide">
         <h2>Завершити тренування</h2>
         {justFinished ? <p className="note">Workout saved. Logging a fresh one below.</p> : null}
+        {deloadGoalExercise ? (
+          <p className="note">
+            ⚠️ Deload suggested for your goal exercise — overloaded (ACWR) or stalled for 2+ sessions. Progression is
+            paused this session; consider reducing the weight yourself if it still feels heavy.
+          </p>
+        ) : null}
         <p className="muted">Focus: {active.block.focusMuscle}</p>
 
         {state.confirmedSessionInputs ? (

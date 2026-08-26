@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { prescribeExercise, prescribeSession, goalHeldStreak, TARGET_REPS_BY_EMPHASIS, WEIGHT_INCREMENT_KG } from './sessionPrescription'
+import {
+  prescribeExercise,
+  prescribeSession,
+  goalHeldStreak,
+  shouldDeloadGoalExercise,
+  TARGET_REPS_BY_EMPHASIS,
+  WEIGHT_INCREMENT_KG,
+} from './sessionPrescription'
 import type { AssembledExerciseSlot } from './sessionOrchestration'
 import type { Goal } from '../domain/goals/types'
 import type { WorkoutLog } from '../domain/workoutLog/types'
@@ -28,6 +35,16 @@ const GOAL: Goal = {
 function slot(overrides: Partial<AssembledExerciseSlot> = {}): AssembledExerciseSlot {
   return { exercise: EXERCISE, muscleGroupId: 'chest', isGoalPriority: true, sets: 3, ...overrides }
 }
+
+// A fixed reference "now" close to (but after) the historical log dates
+// below, passed explicitly as `asOf` everywhere prescribeExercise/
+// prescribeSession's date-gap math matters -- without it, these tests'
+// pass/fail would silently depend on how many real days have elapsed since
+// the log dates were written, since the default asOf is the real
+// new Date(). Chosen 1 day after the latest fixed log date so every gap in
+// these tests stays well under DETRAINING_RISK_THRESHOLD_DAYS (14) unless a
+// test is specifically about that gap.
+const NOW = new Date('2026-08-16T00:00:00.000Z')
 
 function log(completedAt: string, exerciseId: string, weightKg: number, reps: number, skipped = false): WorkoutLog {
   return {
@@ -58,7 +75,7 @@ describe('prescribeExercise — goal exercise (APRE)', () => {
   it('progresses the working weight by the increment when the last session met or beat target reps', () => {
     const targetReps = TARGET_REPS_BY_EMPHASIS.strength
     const history = [log('2026-08-10T00:00:00.000Z', 'x1', 70, targetReps)]
-    const result = prescribeExercise(slot(), GOAL, history)
+    const result = prescribeExercise(slot(), GOAL, history, { asOf: NOW })
     const working = result.sets.filter((s) => s.role === 'working')
     expect(working[0].weightKg).toBe(70 + WEIGHT_INCREMENT_KG)
   })
@@ -66,7 +83,7 @@ describe('prescribeExercise — goal exercise (APRE)', () => {
   it('holds the weight when the last session missed target reps', () => {
     const targetReps = TARGET_REPS_BY_EMPHASIS.strength
     const history = [log('2026-08-10T00:00:00.000Z', 'x1', 70, targetReps - 1)]
-    const result = prescribeExercise(slot(), GOAL, history)
+    const result = prescribeExercise(slot(), GOAL, history, { asOf: NOW })
     const working = result.sets.filter((s) => s.role === 'working')
     expect(working[0].weightKg).toBe(70)
   })
@@ -77,7 +94,7 @@ describe('prescribeExercise — goal exercise (APRE)', () => {
       log('2026-08-01T00:00:00.000Z', 'x1', 70, targetReps),
       log('2026-08-15T00:00:00.000Z', 'x1', 75, targetReps - 1), // most recent: held
     ]
-    const result = prescribeExercise(slot(), GOAL, history)
+    const result = prescribeExercise(slot(), GOAL, history, { asOf: NOW })
     const working = result.sets.filter((s) => s.role === 'working')
     expect(working[0].weightKg).toBe(75)
   })
@@ -88,9 +105,51 @@ describe('prescribeExercise — goal exercise (APRE)', () => {
       log('2026-08-01T00:00:00.000Z', 'x1', 70, targetReps),
       log('2026-08-15T00:00:00.000Z', 'x1', 999, 999, true), // skipped, must be ignored
     ]
-    const result = prescribeExercise(slot(), GOAL, history)
+    // The skipped 08-15 log must be ignored, leaving 08-01 as the real most
+    // recent top set -- asOf pinned within 14 days of THAT date (not NOW,
+    // which is 15 days out and would otherwise wrongly trigger the
+    // returning-after-a-gap resumption-weight branch instead of plain
+    // progression, defeating the point of this test).
+    const asOf = new Date('2026-08-10T00:00:00.000Z')
+    const result = prescribeExercise(slot(), GOAL, history, { asOf })
     const working = result.sets.filter((s) => s.role === 'working')
     expect(working[0].weightKg).toBe(70 + WEIGHT_INCREMENT_KG)
+  })
+
+  it('uses suggestResumptionWeight instead of plain progression when returning after >= 14 days', () => {
+    const targetReps = TARGET_REPS_BY_EMPHASIS.strength
+    const history = [log('2026-08-01T00:00:00.000Z', 'x1', 70, targetReps)] // hit target, but stale
+    const asOf = new Date('2026-08-15T00:00:00.000Z') // exactly 14 days later
+    const result = prescribeExercise(slot(), GOAL, history, { asOf })
+    const working = result.sets.filter((s) => s.role === 'working')
+    // 14-27 days tier = 90% of last working weight, not 70 + increment.
+    expect(working[0].weightKg).toBe(70 * 0.9)
+  })
+
+  it('still applies plain APRE progression at 13 days (boundary condition, just under the gap threshold)', () => {
+    const targetReps = TARGET_REPS_BY_EMPHASIS.strength
+    const history = [log('2026-08-01T00:00:00.000Z', 'x1', 70, targetReps)]
+    const asOf = new Date('2026-08-14T00:00:00.000Z') // 13 days later
+    const result = prescribeExercise(slot(), GOAL, history, { asOf })
+    const working = result.sets.filter((s) => s.role === 'working')
+    expect(working[0].weightKg).toBe(70 + WEIGHT_INCREMENT_KG)
+  })
+
+  it('deloadGoalExercise holds the weight even when the last session hit target reps', () => {
+    const targetReps = TARGET_REPS_BY_EMPHASIS.strength
+    const history = [log('2026-08-10T00:00:00.000Z', 'x1', 70, targetReps)]
+    const result = prescribeExercise(slot(), GOAL, history, { asOf: NOW, deloadGoalExercise: true })
+    const working = result.sets.filter((s) => s.role === 'working')
+    expect(working[0].weightKg).toBe(70)
+  })
+
+  it('deloadGoalExercise has no effect on a maintenance exercise (only meaningful for the goal exercise)', () => {
+    const history = [log('2026-08-10T00:00:00.000Z', 'x1', 40, 12)]
+    const result = prescribeExercise(slot({ isGoalPriority: false }), GOAL, history, {
+      asOf: NOW,
+      deloadGoalExercise: true,
+    })
+    expect(result.sets.every((s) => s.weightKg === 40)).toBe(true)
   })
 
   it('always prescribes at least 1 working set even if the assembled slot said 0 (boundary condition)', () => {
@@ -146,6 +205,42 @@ describe('goalHeldStreak', () => {
       log('2026-08-10T00:00:00.000Z', 'x1', 70, targetReps - 1, true), // skipped
     ]
     expect(goalHeldStreak(history, GOAL)).toBe(1)
+  })
+})
+
+describe('shouldDeloadGoalExercise', () => {
+  const targetReps = TARGET_REPS_BY_EMPHASIS.strength
+  // A real exercise/muscle pair (unlike EXERCISE/GOAL above, which use a
+  // fake id) -- buildMuscleLoadEntries needs a real library lookup to
+  // attribute hard sets to a muscle at all.
+  const REAL_GOAL: Goal = { ...GOAL, exerciseId: 'Barbell_Curl' }
+
+  function curlLog(daysAgo: number, reps: number): WorkoutLog {
+    const completedAt = new Date(NOW.getTime() - daysAgo * 24 * 60 * 60 * 1000).toISOString()
+    return log(completedAt, 'Barbell_Curl', 20, reps)
+  }
+
+  it('is false with no history at all (boundary condition)', () => {
+    expect(shouldDeloadGoalExercise([], [], 'biceps', REAL_GOAL, NOW)).toBe(false)
+  })
+
+  it('triggers on 2+ consecutive held sessions, even with unremarkable ACWR', () => {
+    const history = [curlLog(10, targetReps - 1), curlLog(5, targetReps - 1)]
+    expect(shouldDeloadGoalExercise(history, history, 'biceps', REAL_GOAL, NOW)).toBe(true)
+  })
+
+  it('triggers on ACWR exceeding the safety ceiling even with zero held sessions', () => {
+    // A sudden spike: all load in the last 7 days, none before -- acute
+    // load fully drives chronic load too, pushing the ratio well past 1.3.
+    const history = [curlLog(1, targetReps), curlLog(3, targetReps), curlLog(5, targetReps)]
+    expect(shouldDeloadGoalExercise(history, history, 'biceps', REAL_GOAL, NOW)).toBe(true)
+  })
+
+  it('is false for consistent, evenly-spaced training with no held streak', () => {
+    // ~7 sessions spread over 25 days, hitting target reps every time --
+    // chronic weekly average keeps pace with acute load, ratio stays low.
+    const history = [3, 7, 11, 14, 18, 21, 25].map((daysAgo) => curlLog(daysAgo, targetReps))
+    expect(shouldDeloadGoalExercise(history, history, 'biceps', REAL_GOAL, NOW)).toBe(false)
   })
 })
 

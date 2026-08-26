@@ -3,7 +3,7 @@ import { useEngineState } from './useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock, workoutLogsInBlock } from '../../application/activeGoal'
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
-import { mostRecentTopSet, prescribeSession, goalHeldStreak } from '../../application/sessionPrescription'
+import { mostRecentTopSet, prescribeSession, goalHeldStreak, shouldDeloadGoalExercise } from '../../application/sessionPrescription'
 import { recentExerciseHistory } from '../../application/exerciseHistory'
 import { isPerHandEquipment } from '../../domain/exerciseLibrary/exerciseLibrary'
 import { ExerciseDetailModal } from './ExerciseDetailModal'
@@ -130,11 +130,21 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
     noGymToday,
     availableMinutes,
   })
+  // Deload check needs the FULL workout history for accurate ACWR windows
+  // (physical fatigue doesn't reset at a block boundary) alongside the
+  // block-scoped history for the held-streak half of the same decision —
+  // see shouldDeloadGoalExercise's own doc comment.
+  const deloadGoalExercise = shouldDeloadGoalExercise(
+    state.workoutLogs,
+    blockWorkoutLogs,
+    active.block.focusMuscle,
+    active.goal,
+  )
   // Prescription (target weight/reps) and recent history, same math the
   // Завершити screen already uses — shown here too so the card carries the
   // same at-a-glance info the old app's exercise cards did (sets/reps/
   // weight/last-3-history), not just a bare set count.
-  const prescriptions = prescribeSession(slots, active.goal, blockWorkoutLogs)
+  const prescriptions = prescribeSession(slots, active.goal, blockWorkoutLogs, { deloadGoalExercise })
 
   return (
     <section className="panel-grid">
@@ -145,6 +155,12 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
           </button>
         </div>
         <h2>Today's session — focus: {active.block.focusMuscle}</h2>
+        {deloadGoalExercise ? (
+          <p className="note">
+            ⚠️ Deload suggested for your goal exercise — overloaded (ACWR) or stalled for 2+ sessions. Progression is
+            paused this session; consider reducing the weight yourself if it still feels heavy.
+          </p>
+        ) : null}
         {slots.length === 0 ? (
           <p>Nothing to show — try a larger time budget.</p>
         ) : (
@@ -220,6 +236,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
           history={recentExerciseHistory(state.workoutLogs, slots[openSlotIndex].exercise.id, 10)}
           heldStreak={slots[openSlotIndex].isGoalPriority ? goalHeldStreak(blockWorkoutLogs, active.goal) : undefined}
           goalTrainingEmphasis={active.goal.trainingEmphasis}
+          deloaded={slots[openSlotIndex].isGoalPriority && deloadGoalExercise}
           onClose={() => setOpenSlotIndex(null)}
         />
       ) : null}

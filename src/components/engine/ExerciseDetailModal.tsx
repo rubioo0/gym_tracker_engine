@@ -17,6 +17,8 @@ interface ExerciseDetailModalProps {
   heldStreak?: number
   /** Needed only to phrase the "how weight is calculated" explainer's target-rep count for the goal exercise. */
   goalTrainingEmphasis?: TrainingEmphasis
+  /** True when shouldDeloadGoalExercise suppressed this session's progression (ACWR overload or 2+ held sessions) — only meaningful for the goal-priority exercise. */
+  deloaded?: boolean
   onClose: () => void
 }
 
@@ -33,6 +35,7 @@ export function ExerciseDetailModal({
   history,
   heldStreak,
   goalTrainingEmphasis,
+  deloaded,
   onClose,
 }: ExerciseDetailModalProps) {
   const titleId = useId()
@@ -138,6 +141,12 @@ export function ExerciseDetailModal({
                 {heldStreak && heldStreak > 0 ? (
                   <p className="note">
                     Held at this weight for {heldStreak} session{heldStreak !== 1 ? 's' : ''} in a row.
+                  </p>
+                ) : null}
+                {deloaded ? (
+                  <p className="note">
+                    ⚠️ Deload suggested — overloaded (ACWR) or stalled for 2+ sessions, so progression is paused this
+                    session even though the weight above may look unchanged from last time.
                   </p>
                 ) : null}
               </section>

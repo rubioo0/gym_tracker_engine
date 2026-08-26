@@ -3,6 +3,7 @@ import { getActiveGoalAndBlock } from '../../application/activeGoal'
 import { buildMuscleLoadEntries } from '../../application/muscleLoadHistory'
 import { projectedCompletionDate, isOnTrack, ESTIMATED_WEEKLY_RATE_KG_BY_EXPERIENCE } from '../../domain/goals/goalProjection'
 import { acuteLoad, chronicLoad, acwr, classifyAcwrZone, isDetrainingRisk } from '../../domain/acwr/acwr'
+import { maxSafeWeeklyLoad } from '../../domain/autoCorrection/autoCorrection'
 import { getExerciseById } from '../../domain/exerciseLibrary/exerciseLibrary'
 import { MUSCLE_GROUPS } from '../../domain/muscles/muscleTaxonomy'
 import type { Goal } from '../../domain/goals/types'
@@ -122,17 +123,22 @@ export function StatsTab() {
   const maxMonthCount = Math.max(...monthlyActivity.map((m) => m.count), 1)
 
   // 6. Per-muscle ACWR/volume: only muscles with any logged data at all.
+  // safeWeeklySets surfaces domain/autoCorrection/autoCorrection.ts's
+  // maxSafeWeeklyLoad (chronic weekly average x the 1.3 ACWR ceiling) --
+  // built and tested but never shown anywhere until now.
   const muscleStats = MUSCLE_GROUPS.map((muscle) => {
     const entries = buildMuscleLoadEntries(logs, muscle.id)
     if (entries.length === 0) return null
     const ratio = acwr(entries, asOf)
+    const chronic = chronicLoad(entries, asOf)
     return {
       muscle,
       acute: acuteLoad(entries, asOf),
-      chronic: chronicLoad(entries, asOf),
+      chronic,
       ratio,
       zone: classifyAcwrZone(ratio),
       detrainingRisk: isDetrainingRisk(entries, asOf),
+      safeWeeklySets: maxSafeWeeklyLoad(chronic / 4),
     }
   }).filter((x): x is NonNullable<typeof x> => x !== null)
 
@@ -274,13 +280,14 @@ export function StatsTab() {
           <p className="muted">No logged sets yet.</p>
         ) : (
           <ul className="list-plain">
-            {muscleStats.map(({ muscle, acute, chronic, ratio, zone, detrainingRisk }) => (
+            {muscleStats.map(({ muscle, acute, chronic, ratio, zone, detrainingRisk, safeWeeklySets }) => (
               <li key={muscle.id} className="item-row item-row-stack">
                 <div>
                   <strong>{muscle.labelEn}</strong>
                   <div className="muted">
                     Acute (7d): {acute} hard sets | Chronic (28d): {chronic} hard sets | ACWR:{' '}
-                    {ratio === null ? 'n/a' : ratio.toFixed(2)} ({zone})
+                    {ratio === null ? 'n/a' : ratio.toFixed(2)} ({zone}) | Safe weekly ceiling:{' '}
+                    {safeWeeklySets.toFixed(1)} sets
                   </div>
                   {detrainingRisk ? <div className="note">Detraining risk — no load in 14+ days.</div> : null}
                 </div>

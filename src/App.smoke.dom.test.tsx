@@ -284,11 +284,16 @@ describe('App smoke test', () => {
     expect(await screen.findByText('No logs yet.')).toBeTruthy()
   })
 
-  it('"Календар" shows the active goal\'s focus and at least one projected entry', async () => {
+  it('"Календар" shows the active goal\'s focus, header stats, and at least one projected entry with exercise detail', async () => {
     renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
     fireEvent.click(screen.getByRole('button', { name: 'Календар' }))
     expect(await screen.findByText('Barbell Curl', { exact: false })).toBeTruthy()
-    expect(screen.getAllByText('projected').length).toBeGreaterThan(0)
+    expect(screen.getByText('Projected goal completion')).toBeTruthy()
+    expect(document.querySelectorAll('.calendar-session.projected').length).toBeGreaterThan(0)
+
+    // Expand the first session to confirm per-entry exercise detail renders.
+    fireEvent.click(screen.getAllByRole('button', { name: /Session \d+/ })[0])
+    expect(screen.getAllByText(/×/).length).toBeGreaterThan(0)
   })
 
   it('"Календар" points to Автопрофіль when there is no active goal', async () => {

@@ -1,5 +1,5 @@
 import { useEngineState } from './useEngineState'
-import { getActiveGoalAndBlock, countSessionsInBlock } from '../../application/activeGoal'
+import { getActiveGoalAndBlock, countSessionsInBlock, workoutLogsInBlock } from '../../application/activeGoal'
 import { mostRecentTopSet } from '../../application/sessionPrescription'
 import { getExerciseById } from '../../domain/exerciseLibrary/exerciseLibrary'
 import { projectedCompletionDate, isOnTrack } from '../../domain/goals/goalProjection'
@@ -92,7 +92,7 @@ function ActiveBlockCard({
   const exercise = getExerciseById(goal.exerciseId)
   const sessionsInBlock = countSessionsInBlock(state.workoutLogs, block)
 
-  const lastTopSet = mostRecentTopSet(state.workoutLogs, goal.exerciseId)
+  const lastTopSet = mostRecentTopSet(workoutLogsInBlock(state.workoutLogs, block), goal.exerciseId)
   const currentWeightKg = lastTopSet?.weightKg ?? goal.startingWeightKg
 
   const experienceLevel: ExperienceLevel = state.profile?.experienceByMuscle[block.focusMuscle] ?? 'beginner'

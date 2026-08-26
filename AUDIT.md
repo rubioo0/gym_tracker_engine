@@ -239,3 +239,18 @@ No `.catch()`; `setLoaded(true)` only runs inside `.then()`.
 - `components/AIAssistant.tsx`: now takes `engineState` instead of `appState`/`onDispatch`; removed the confirm-card UI for the retired tool.
 - Files touched: `App.tsx`, `App.smoke.dom.test.tsx`, `components/AIAssistant.tsx`, `services/aiContext.ts`, `services/geminiService.ts`.
 - Commit: `116762e`. Deploy: GitHub Actions run `32949041098`, confirmed live (spot-checked bundle `index-CRymeQVG.js` — old confirm-card string absent, new "Активна ціль"/"Останні тренування" context sections present).
+
+### 2026-08-26 — Phase 3a: exercise-card UX parity (first slice)
+- **Fixed (user-approved: port the intent, not verbatim old-app code).** Dumbbell/kettlebell weights now labeled "per hand" everywhere a weight is shown (card chips, log inputs, history chips, detail modal) — direct port using the exercise library's `equipment` field.
+- `ExerciseDetailModal.tsx` gained a "How this weight is calculated" explainer (APRE formula for the goal exercise, "repeats last weight" for maintenance) and a held-streak indicator, via new `application/sessionPrescription.ts`'s `goalHeldStreak` (reuses the already-tested `countConsecutiveHeldSessions` from `domain/acwr/acwr.ts` instead of resurrecting the old app's fixed-cycle math).
+- Історія gained an Excel export of engine `workoutLogs` (new `data/engineExcelLogExport.ts`, one row per set) — closes a high-severity parity gap.
+- Intentionally not ported: old app's "Done/Left" session counters (no fixed program length in the engine to count against — see plan doc for the adaptation rationale).
+- Files touched: `application/sessionPrescription.ts`(+test), `components/engine/ExerciseDetailModal.tsx`, `components/engine/FinishSessionTab.tsx`, `components/engine/HistoryTab.tsx`, `components/engine/TodayTab.tsx`, `domain/exerciseLibrary/exerciseLibrary.ts`(+test); new `data/engineExcelLogExport.ts`(+test).
+- Commit: `63090e2`. Deploy: GitHub Actions run `32949820288`, confirmed live (spot-checked bundle `index-DxNohGAH.js`).
+
+### 2026-08-26 — Phase 3b: ported Calendar per-session detail, header stats, Excel export
+- **Fixed (user-approved: port the intent, not verbatim old-app code).** Календар gained expandable per-date exercise detail (real logs for the past, a live prescription preview for the future), header stats (start date, goal-deadline projection, avg cadence), and an Excel export — closing the parity gap the audit flagged as high severity.
+- New `application/calendarDetail.ts`(+test), `data/engineExcelCalendarExport.ts`(+test), `components/engine/CalendarTab.css` (ported from the dead `ProgramCalendarView.css`).
+- Also fixed a leftover instance of the Phase 0 block-scoping bug in `FocusTab.tsx` (`mostRecentTopSet` was still unscoped there — the audit finding only named `TodayTab`/`FinishSessionTab`).
+- Files touched: `App.smoke.dom.test.tsx`, `components/engine/CalendarTab.tsx`, `components/engine/FocusTab.tsx`; new `application/calendarDetail.ts`(+test), `data/engineExcelCalendarExport.ts`(+test), `components/engine/CalendarTab.css`.
+- Commit: `83922be`. Deploy: GitHub Actions run `32950323003`, confirmed live (spot-checked bundle `index-jeDgFXcQ.js`).

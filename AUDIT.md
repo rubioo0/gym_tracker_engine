@@ -275,3 +275,16 @@ No `.catch()`; `setLoaded(true)` only runs inside `.then()`.
 - Updated `sessionPrescription.test.ts`'s existing cases to pin an explicit `asOf` next to their fixed historical log dates — without it, the new gap-detection math would make those tests' pass/fail depend on how many real days had elapsed since the dates were written, a flakiness class being actively fixed elsewhere this session, not introduced anew.
 - Files touched: `App.smoke.dom.test.tsx`, `application/sessionPrescription.ts`(+test), `components/engine/ExerciseDetailModal.tsx`, `components/engine/FinishSessionTab.tsx`, `components/engine/SetupTab.tsx`, `components/engine/StatsTab.tsx`, `components/engine/TodayTab.tsx`.
 - Commit: `5f3082f`. Deploy: GitHub Actions run `32952006262`, confirmed live (spot-checked bundle `index-C8CRe1y9.js`).
+
+### 2026-08-26 — Phase 5: dead schema cleanup, remaining test gap, documented lint baseline
+- **Fixed (recommendation stood unchallenged).** Deleted `PersistedState.weighIns`/`circumferenceMeasurements` and the whole `domain/measurements/` module (real domain math — `weighInsToPoints`, `latestMeasurement` — but no reducer case to populate it and no UI to read it). Chose deletion over building an unrequested weigh-in-tracking feature, per the "don't build for hypothetical future requirements" default.
+- Added a Data-tab JSON-import regression test (textarea + "Import JSON From Box") — the last untested parsing path the test-coverage audit flagged; closes the "broken reducer-wiring regression could ship silently" risk on that path.
+- `eslint.config.js` now documents the current 10-pre-existing-error lint baseline in-repo instead of leaving it as this session's tribal knowledge.
+- Files touched: `App.smoke.dom.test.tsx`, `application/state.ts`(+test), `eslint.config.js`; deleted `domain/measurements/` (4 files).
+- Commit: `3b37f4c`. Deploy: GitHub Actions run `32952397336`, confirmed live (spot-checked bundle `index-DHXOwMKy.js`).
+
+---
+
+## Summary: all 5 phases complete
+
+Every finding from the original 5-angle audit was either fixed, deliberately scoped down with the reasoning recorded inline above, or explicitly deferred with a stated reason — nothing was silently dropped. Structural highlights: the Programs tab and its FocusRun mechanism are gone (confirmed dead), the AI Assistant now actually knows about real engine data instead of an orphaned tree, the old app's UX (per-hand weights, held-cycle signal, calendar detail, bar chart, weight-calculation explainer) has been ported onto the engine's own data model rather than copied verbatim, and the "autonomous" half of "autonomous adaptive training engine" — focus rotation, gap-resumption weight, ACWR-based deload — is live for the first time. Open decisions the audit flagged but couldn't resolve alone (Programs/FocusRun fate, dead-file feature porting, autonomous-layer activation, weigh-in schema) were all put to the user and answered before implementation started.

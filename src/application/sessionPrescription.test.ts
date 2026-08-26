@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { prescribeExercise, prescribeSession, TARGET_REPS_BY_EMPHASIS, WEIGHT_INCREMENT_KG } from './sessionPrescription'
+import { prescribeExercise, prescribeSession, goalHeldStreak, TARGET_REPS_BY_EMPHASIS, WEIGHT_INCREMENT_KG } from './sessionPrescription'
 import type { AssembledExerciseSlot } from './sessionOrchestration'
 import type { Goal } from '../domain/goals/types'
 import type { WorkoutLog } from '../domain/workoutLog/types'
@@ -111,6 +111,41 @@ describe('prescribeExercise — maintenance exercise (repeat last weight)', () =
   it('falls back to 0 (not the goal starting weight) when there is no history — honest "enter manually", not a guess', () => {
     const result = prescribeExercise(slot({ isGoalPriority: false }), GOAL, [])
     expect(result.sets.every((s) => s.weightKg === 0)).toBe(true)
+  })
+})
+
+describe('goalHeldStreak', () => {
+  const targetReps = TARGET_REPS_BY_EMPHASIS.strength
+
+  it('is 0 when there is no history at all', () => {
+    expect(goalHeldStreak([], GOAL)).toBe(0)
+  })
+
+  it('is 0 when the most recent session met target reps', () => {
+    const history = [
+      log('2026-08-01T00:00:00.000Z', 'x1', 70, targetReps - 1),
+      log('2026-08-10T00:00:00.000Z', 'x1', 70, targetReps),
+    ]
+    expect(goalHeldStreak(history, GOAL)).toBe(0)
+  })
+
+  it('counts consecutive most-recent misses, stopping at the first hit walking backward', () => {
+    const history = [
+      log('2026-08-01T00:00:00.000Z', 'x1', 65, targetReps), // hit -- not counted
+      log('2026-08-05T00:00:00.000Z', 'x1', 70, targetReps - 1), // held
+      log('2026-08-10T00:00:00.000Z', 'x1', 70, targetReps - 1), // held
+      log('2026-08-15T00:00:00.000Z', 'x1', 70, targetReps - 1), // held (most recent)
+    ]
+    expect(goalHeldStreak(history, GOAL)).toBe(3)
+  })
+
+  it('ignores logs for a different exercise and skipped logs', () => {
+    const history = [
+      log('2026-08-01T00:00:00.000Z', 'x1', 70, targetReps - 1),
+      log('2026-08-05T00:00:00.000Z', 'other-exercise', 999, 999),
+      log('2026-08-10T00:00:00.000Z', 'x1', 70, targetReps - 1, true), // skipped
+    ]
+    expect(goalHeldStreak(history, GOAL)).toBe(1)
   })
 })
 

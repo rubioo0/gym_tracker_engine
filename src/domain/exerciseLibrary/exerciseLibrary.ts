@@ -37,6 +37,11 @@ export function getExerciseById(id: string): LibraryExercise | undefined {
   return EXERCISE_BY_ID.get(id)
 }
 
+/** Whether a logged/prescribed weight for this exercise means "per hand/side" rather than total load — dumbbells and kettlebells are always loaded and moved independently per side. */
+export function isPerHandEquipment(exercise: Pick<LibraryExercise, 'equipment'>): boolean {
+  return exercise.equipment === 'dumbbell' || exercise.equipment === 'kettlebells'
+}
+
 /**
  * Exercises where the given muscle is a PRIMARY target. Used by the
  * primary-lift-plus-accessories selection (see plan doc "Primary vs.

@@ -5,7 +5,7 @@ import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
 import { prescribeSession, mostRecentTopSet } from '../../application/sessionPrescription'
 import { recentExerciseHistory } from '../../application/exerciseHistory'
-import { getExerciseById } from '../../domain/exerciseLibrary/exerciseLibrary'
+import { getExerciseById, isPerHandEquipment } from '../../domain/exerciseLibrary/exerciseLibrary'
 import type { ExerciseDifficulty, SetEntry, WorkoutLog } from '../../domain/workoutLog/types'
 
 const RENEWAL_MESSAGES: Record<GoalRenewalReason, string> = {
@@ -180,7 +180,7 @@ export function FinishSessionTab() {
                 <div className="exercise-card-history">
                   {history.map((entry) => (
                     <span key={entry.completedAt} className="exercise-history-chip">
-                      {entry.weightKg}kg×{entry.reps} ({entry.completedAt.slice(0, 10)})
+                      {entry.weightKg}kg{exercise && isPerHandEquipment(exercise) ? '/hand' : ''}×{entry.reps} ({entry.completedAt.slice(0, 10)})
                     </span>
                   ))}
                 </div>
@@ -203,7 +203,10 @@ export function FinishSessionTab() {
                   {log.sets.map((set, i) => (
                     <div key={i} className="log-input-grid">
                       <label className="stacked-field">
-                        {set.role === 'ramp' ? `Ramp set ${i + 1} — weight (kg)` : `Set ${i + 1} — weight (kg)`}
+                        {(() => {
+                          const unit = exercise && isPerHandEquipment(exercise) ? 'kg per hand' : 'kg'
+                          return set.role === 'ramp' ? `Ramp set ${i + 1} — weight (${unit})` : `Set ${i + 1} — weight (${unit})`
+                        })()}
                         <input
                           type="number"
                           value={set.weightKg}

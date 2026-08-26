@@ -7,6 +7,7 @@ import {
   getExerciseById,
   getExercisesTargeting,
   getExercisesWithPrimaryMuscle,
+  isPerHandEquipment,
   resolveOldAppExercise,
 } from './exerciseLibrary'
 
@@ -110,5 +111,21 @@ describe('resolveOldAppExercise', () => {
 
   it('returns undefined for a name with no alias entry', () => {
     expect(resolveOldAppExercise('Not An Old App Exercise')).toBeUndefined()
+  })
+})
+
+describe('isPerHandEquipment', () => {
+  it('is true for dumbbell', () => {
+    expect(isPerHandEquipment({ equipment: 'dumbbell' })).toBe(true)
+  })
+
+  it('is true for kettlebells', () => {
+    expect(isPerHandEquipment({ equipment: 'kettlebells' })).toBe(true)
+  })
+
+  it('is false for barbell, other equipment, and null', () => {
+    expect(isPerHandEquipment({ equipment: 'barbell' })).toBe(false)
+    expect(isPerHandEquipment({ equipment: 'body only' })).toBe(false)
+    expect(isPerHandEquipment({ equipment: null })).toBe(false)
   })
 })

@@ -3,8 +3,9 @@ import { useEngineState } from './useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock, workoutLogsInBlock } from '../../application/activeGoal'
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
-import { mostRecentTopSet, prescribeSession } from '../../application/sessionPrescription'
+import { mostRecentTopSet, prescribeSession, goalHeldStreak } from '../../application/sessionPrescription'
 import { recentExerciseHistory } from '../../application/exerciseHistory'
+import { isPerHandEquipment } from '../../domain/exerciseLibrary/exerciseLibrary'
 import { ExerciseDetailModal } from './ExerciseDetailModal'
 import './EngineTabs.css'
 
@@ -177,7 +178,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
                           </span>
                           <span className="exercise-chip">
                             <strong>Weight</strong>
-                            {working.weightKg}kg
+                            {working.weightKg}kg{isPerHandEquipment(slot.exercise) ? ' /hand' : ''}
                           </span>
                         </>
                       ) : null}
@@ -190,7 +191,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
                       <div className="exercise-card-history">
                         {history.map((entry) => (
                           <span key={entry.completedAt} className="exercise-history-chip">
-                            {entry.weightKg}kg×{entry.reps} ({entry.completedAt.slice(0, 10)})
+                            {entry.weightKg}kg{isPerHandEquipment(slot.exercise) ? '/hand' : ''}×{entry.reps} ({entry.completedAt.slice(0, 10)})
                           </span>
                         ))}
                       </div>
@@ -217,6 +218,8 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
           isGoalPriority={slots[openSlotIndex].isGoalPriority}
           prescribedSets={prescriptions[openSlotIndex]?.sets}
           history={recentExerciseHistory(state.workoutLogs, slots[openSlotIndex].exercise.id, 10)}
+          heldStreak={slots[openSlotIndex].isGoalPriority ? goalHeldStreak(blockWorkoutLogs, active.goal) : undefined}
+          goalTrainingEmphasis={active.goal.trainingEmphasis}
           onClose={() => setOpenSlotIndex(null)}
         />
       ) : null}

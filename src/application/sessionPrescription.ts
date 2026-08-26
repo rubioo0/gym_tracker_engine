@@ -3,6 +3,7 @@ import type { ExerciseLog, SetEntry, WorkoutLog } from '../domain/workoutLog/typ
 import type { Goal, TrainingEmphasis } from '../domain/goals/types'
 import { rampSets, nextWorkingWeight } from '../domain/apre/apre'
 import { topSet } from '../domain/workoutLog/workoutLog'
+import { countConsecutiveHeldSessions, type ApreSessionOutcome } from '../domain/acwr/acwr'
 
 /**
  * Target rep count per training emphasis — the locked "training-emphasis
@@ -98,6 +99,26 @@ export function prescribeExercise(
     role: 'working',
   }))
   return { exerciseId: slot.exercise.id, sets: working }
+}
+
+/**
+ * How many of the most recent sessions for a goal's exercise, walking
+ * backward, missed the target rep count in a row — the engine's analogue of
+ * the old app's "held cycle" indicator, reusing the already-tested
+ * countConsecutiveHeldSessions (domain/acwr/acwr.ts) instead of resurrecting
+ * that app's fixed-frequency-cycle math, which doesn't apply to APRE.
+ */
+export function goalHeldStreak(workoutLogs: readonly WorkoutLog[], goal: Goal): number {
+  const targetReps = TARGET_REPS_BY_EMPHASIS[goal.trainingEmphasis]
+  const outcomes: ApreSessionOutcome[] = workoutLogs
+    .slice()
+    .sort((a, b) => (a.completedAt < b.completedAt ? -1 : 1))
+    .flatMap((log) => {
+      const exerciseLog = log.exerciseLogs.find((e) => e.exerciseId === goal.exerciseId && !e.skipped)
+      const top = exerciseLog ? topSet(exerciseLog) : undefined
+      return top ? [{ targetReps, actualReps: top.reps }] : []
+    })
+  return countConsecutiveHeldSessions(outcomes)
 }
 
 export function prescribeSession(

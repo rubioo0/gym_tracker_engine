@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef } from 'react'
-import type { LibraryExercise } from '../../domain/exerciseLibrary/exerciseLibrary'
-import type { PrescribedSet } from '../../application/sessionPrescription'
+import { isPerHandEquipment, type LibraryExercise } from '../../domain/exerciseLibrary/exerciseLibrary'
+import { WEIGHT_INCREMENT_KG, TARGET_REPS_BY_EMPHASIS, type PrescribedSet } from '../../application/sessionPrescription'
 import type { ExerciseHistoryEntry } from '../../application/exerciseHistory'
+import type { TrainingEmphasis } from '../../domain/goals/types'
 import { ExerciseVisual } from './ExerciseVisual'
 
 interface ExerciseDetailModalProps {
@@ -12,11 +13,28 @@ interface ExerciseDetailModalProps {
   prescribedSets?: PrescribedSet[]
   /** Full (uncapped, unlike the card's 3-entry preview) recent history. */
   history?: ExerciseHistoryEntry[]
+  /** Consecutive most-recent sessions that missed target reps — only meaningful/passed for the goal-priority exercise. */
+  heldStreak?: number
+  /** Needed only to phrase the "how weight is calculated" explainer's target-rep count for the goal exercise. */
+  goalTrainingEmphasis?: TrainingEmphasis
   onClose: () => void
 }
 
+function formatWeight(weightKg: number, exercise: Pick<LibraryExercise, 'equipment'>): string {
+  return isPerHandEquipment(exercise) ? `${weightKg}kg (per hand)` : `${weightKg}kg`
+}
+
 /** Same interaction pattern as the old app's SessionExerciseDetailsModal (click a card, see image + instructions), reusing its `.exercise-modal*` classes — rebuilt against the engine's own AssembledExerciseSlot/LibraryExercise shape instead of PlannedExercise. */
-export function ExerciseDetailModal({ exercise, sets, isGoalPriority, prescribedSets, history, onClose }: ExerciseDetailModalProps) {
+export function ExerciseDetailModal({
+  exercise,
+  sets,
+  isGoalPriority,
+  prescribedSets,
+  history,
+  heldStreak,
+  goalTrainingEmphasis,
+  onClose,
+}: ExerciseDetailModalProps) {
   const titleId = useId()
   const closeButtonRef = useRef<HTMLButtonElement | null>(null)
 
@@ -78,7 +96,7 @@ export function ExerciseDetailModal({ exercise, sets, isGoalPriority, prescribed
                     </div>
                     <div className="exercise-detail-item">
                       <span>Weight</span>
-                      <strong>{working.weightKg}kg</strong>
+                      <strong>{formatWeight(working.weightKg, exercise)}</strong>
                     </div>
                   </>
                 ) : null
@@ -103,8 +121,31 @@ export function ExerciseDetailModal({ exercise, sets, isGoalPriority, prescribed
                 <p className="muted">
                   {prescribedSets
                     .filter((s) => s.role === 'ramp')
-                    .map((s) => `${s.weightKg}kg×${s.targetReps}`)
+                    .map((s) => `${formatWeight(s.weightKg, exercise)}×${s.targetReps}`)
                     .join(', ')}
+                </p>
+              </section>
+            ) : null}
+
+            {isGoalPriority && prescribedSets ? (
+              <section className="exercise-section">
+                <h4>How this weight is calculated</h4>
+                <p className="muted">
+                  {`This is your goal exercise, so it follows APRE: your last logged top set decides today's weight. Hit ${
+                    goalTrainingEmphasis ? TARGET_REPS_BY_EMPHASIS[goalTrainingEmphasis] : 'the'
+                  }+ reps at the working weight and next time it goes up by ${WEIGHT_INCREMENT_KG}kg; miss it and it repeats.`}
+                </p>
+                {heldStreak && heldStreak > 0 ? (
+                  <p className="note">
+                    Held at this weight for {heldStreak} session{heldStreak !== 1 ? 's' : ''} in a row.
+                  </p>
+                ) : null}
+              </section>
+            ) : !isGoalPriority && prescribedSets ? (
+              <section className="exercise-section">
+                <h4>How this weight is calculated</h4>
+                <p className="muted">
+                  This is a maintenance exercise — it repeats your last logged weight rather than progressing automatically.
                 </p>
               </section>
             ) : null}
@@ -115,7 +156,7 @@ export function ExerciseDetailModal({ exercise, sets, isGoalPriority, prescribed
                 <div className="exercise-history-all">
                   {history.map((entry) => (
                     <span key={entry.completedAt} className="exercise-history-chip">
-                      {entry.weightKg}kg×{entry.reps} ({entry.completedAt.slice(0, 10)})
+                      {formatWeight(entry.weightKg, exercise)}×{entry.reps} ({entry.completedAt.slice(0, 10)})
                     </span>
                   ))}
                 </div>

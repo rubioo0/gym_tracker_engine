@@ -3,6 +3,7 @@ import type { MuscleGroupId } from '../domain/muscles/muscleTaxonomy'
 import type { MuscleLoadEntry } from '../domain/acwr/acwr'
 import { getExerciseById } from '../domain/exerciseLibrary/exerciseLibrary'
 import { hardSetCount } from '../domain/workoutLog/workoutLog'
+import { localDateKey } from '../domain/dateUtils'
 
 /**
  * Aggregates real logged workouts into the per-muscle time series that
@@ -20,7 +21,7 @@ export function buildMuscleLoadEntries(
   const hardSetsByDate = new Map<string, number>()
 
   for (const log of workoutLogs) {
-    const date = log.completedAt.slice(0, 10)
+    const date = localDateKey(log.completedAt)
     let dailyHardSets = hardSetsByDate.get(date) ?? 0
 
     for (const exerciseLog of log.exerciseLogs) {

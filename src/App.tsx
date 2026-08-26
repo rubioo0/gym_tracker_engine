@@ -105,7 +105,14 @@ function App() {
   const [aiGenTemplate, setAiGenTemplate] = useState<ProgramTemplate | null>(null)
 
   useEffect(() => {
-    saveAppState(state)
+    const saved = saveAppState(state)
+    if (!saved) {
+      queueMicrotask(() => {
+        setDataMessage(
+          "Couldn't save your last change — your device's local storage may be full. Free up space or export a backup soon.",
+        )
+      })
+    }
   }, [state])
 
   const templatesByMode = useMemo(() => {
@@ -437,6 +444,15 @@ function App() {
     if (!csvRawText.trim()) {
       setDataMessage('Select a CSV file first.')
       return
+    }
+
+    if (csvHardOverwrite) {
+      const approved = window.confirm(
+        'Hard overwrite is enabled: this will replace the matched template\'s exercises and drop any preserved progression-rule links. Continue?',
+      )
+      if (!approved) {
+        return
+      }
     }
 
     const effectiveCsvText =

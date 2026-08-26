@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useEngineState } from './useEngineState'
-import { getActiveGoalAndBlock, countSessionsInBlock } from '../../application/activeGoal'
+import { getActiveGoalAndBlock, countSessionsInBlock, workoutLogsInBlock } from '../../application/activeGoal'
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
 import { mostRecentTopSet, prescribeSession } from '../../application/sessionPrescription'
@@ -67,7 +67,8 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
     )
   }
 
-  const currentWeightKg = mostRecentTopSet(state.workoutLogs, active.goal.exerciseId)?.weightKg ?? null
+  const blockWorkoutLogs = workoutLogsInBlock(state.workoutLogs, active.block)
+  const currentWeightKg = mostRecentTopSet(blockWorkoutLogs, active.goal.exerciseId)?.weightKg ?? null
   const renewalReason = checkGoalNeedsRenewal(active.goal, active.block, state.profile, currentWeightKg, new Date())
   if (renewalReason) {
     return (
@@ -132,7 +133,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
   // Завершити screen already uses — shown here too so the card carries the
   // same at-a-glance info the old app's exercise cards did (sets/reps/
   // weight/last-3-history), not just a bare set count.
-  const prescriptions = prescribeSession(slots, active.goal, state.workoutLogs)
+  const prescriptions = prescribeSession(slots, active.goal, blockWorkoutLogs)
 
   return (
     <section className="panel-grid">

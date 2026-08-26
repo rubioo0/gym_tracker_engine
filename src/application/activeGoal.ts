@@ -19,6 +19,20 @@ export function getActiveGoalAndBlock(state: PersistedState): ActiveGoalAndBlock
 
 /** How many sessions have been logged since the block started — the session-count-based rotation-slot input for sessionOrchestration.ts (grooming finding #7: "today" is session-count-based, not calendar-based). */
 export function countSessionsInBlock(workoutLogs: readonly WorkoutLog[], block: SpecializationBlock): number {
+  return workoutLogsInBlock(workoutLogs, block).length
+}
+
+/**
+ * Logs scoped to the active block's timeframe — used anywhere a previous,
+ * unrelated block's history on the same exercise must not be mistaken for
+ * this block's progress (goal-renewal checks, today's prescription). A
+ * second goal cycle on an exercise you've trained before would otherwise
+ * see the old block's top set and could be born already "target met."
+ * Display-only history (recent-lifts chips) intentionally keeps using the
+ * unfiltered log list — showing all-time history there is desirable, this
+ * scoping is only for logic that decides what's "current."
+ */
+export function workoutLogsInBlock(workoutLogs: readonly WorkoutLog[], block: SpecializationBlock): WorkoutLog[] {
   const blockStart = new Date(block.startedAt).getTime()
-  return workoutLogs.filter((log) => new Date(log.completedAt).getTime() >= blockStart).length
+  return workoutLogs.filter((log) => new Date(log.completedAt).getTime() >= blockStart)
 }

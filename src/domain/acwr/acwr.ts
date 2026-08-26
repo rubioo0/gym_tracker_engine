@@ -1,5 +1,7 @@
 /** See acwr.md for the full derivation and worked examples. */
 
+import { localDateKey, parseLocalDateKey } from '../dateUtils'
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 const ACUTE_WINDOW_DAYS = 7
 const CHRONIC_WINDOW_DAYS = 28
@@ -15,9 +17,18 @@ export interface MuscleLoadEntry {
   hardSets: number
 }
 
-/** Day-offset of `date` before `asOf`, e.g. 0 = same day, 1 = yesterday. Negative if `date` is in the future relative to `asOf`. */
+/**
+ * Day-offset of `date` before `asOf`, e.g. 0 = same day, 1 = yesterday.
+ * Negative if `date` is in the future relative to `asOf`. Compares LOCAL
+ * calendar days, not raw UTC-instant subtraction — accepts either a bare
+ * "YYYY-MM-DD" (already a local-date-key, e.g. from muscleLoadHistory.ts)
+ * or a full ISO timestamp (converted to its local calendar day first).
+ */
 function daysBefore(date: string, asOf: Date): number {
-  return Math.floor((asOf.getTime() - new Date(date).getTime()) / MS_PER_DAY)
+  const dateKey = date.length === 10 ? date : localDateKey(date)
+  const dateMs = parseLocalDateKey(dateKey).getTime()
+  const asOfMs = parseLocalDateKey(localDateKey(asOf)).getTime()
+  return Math.floor((asOfMs - dateMs) / MS_PER_DAY)
 }
 
 /** Sum of hardSets for entries within the last `windowDays` days up to and including `asOf` (half-open: day-offsets 0..windowDays-1). */

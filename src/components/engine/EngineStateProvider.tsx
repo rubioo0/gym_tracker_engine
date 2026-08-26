@@ -22,16 +22,24 @@ export function EngineStateProvider({
 }) {
   const [state, dispatch] = useReducer(appReducer, INITIAL_STATE)
   const [loaded, setLoaded] = useState(false)
+  const [loadError, setLoadError] = useState(false)
+  const [saveError, setSaveError] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    repository.loadState().then((loadedState) => {
-      if (cancelled) return
-      if (loadedState) {
-        dispatch({ type: 'REPLACE_STATE', state: loadedState })
-      }
-      setLoaded(true)
-    })
+    repository
+      .loadState()
+      .then((loadedState) => {
+        if (cancelled) return
+        if (loadedState) {
+          dispatch({ type: 'REPLACE_STATE', state: loadedState })
+        }
+        setLoaded(true)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setLoadError(true)
+      })
     return () => {
       cancelled = true
     }
@@ -40,9 +48,43 @@ export function EngineStateProvider({
 
   useEffect(() => {
     if (!loaded) return
-    repository.saveState(state)
+    let cancelled = false
+    repository
+      .saveState(state)
+      .then(() => {
+        if (!cancelled) setSaveError(false)
+      })
+      .catch(() => {
+        if (!cancelled) setSaveError(true)
+      })
+    return () => {
+      cancelled = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, loaded])
 
-  return <EngineStateContext.Provider value={{ state, dispatch, loaded }}>{children}</EngineStateContext.Provider>
+  return (
+    <EngineStateContext.Provider value={{ state, dispatch, loaded }}>
+      {loadError ? (
+        <p role="alert" style={BANNER_STYLE}>
+          Couldn't load your saved training data. Reload the page to retry — your data has not been erased.
+        </p>
+      ) : null}
+      {saveError ? (
+        <p role="alert" style={BANNER_STYLE}>
+          Couldn't save your last change — it may be lost if you close this tab. Check your device's storage space and try again.
+        </p>
+      ) : null}
+      {children}
+    </EngineStateContext.Provider>
+  )
+}
+
+const BANNER_STYLE = {
+  margin: 0,
+  padding: '0.5rem 1rem',
+  background: '#7a1f1f',
+  color: '#fff',
+  textAlign: 'center' as const,
+  fontSize: '0.9rem',
 }

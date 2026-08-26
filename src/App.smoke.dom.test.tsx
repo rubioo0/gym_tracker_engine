@@ -91,6 +91,36 @@ describe('App smoke test', () => {
     expect(screen.getByText('Training Control Panel')).toBeTruthy()
   })
 
+  it('shows a banner (not a silent failure) when the engine state fails to load', async () => {
+    const repository: TrainingDataRepository = {
+      loadState: async () => {
+        throw new Error('boom')
+      },
+      saveState: async () => {},
+    }
+    render(
+      <EngineStateProvider repository={repository}>
+        <App />
+      </EngineStateProvider>,
+    )
+    expect((await screen.findByRole('alert')).textContent).toMatch(/couldn't load/i)
+  })
+
+  it('shows a banner (not a silent failure) when the engine state fails to save', async () => {
+    const repository: TrainingDataRepository = {
+      loadState: async () => null,
+      saveState: async () => {
+        throw new Error('boom')
+      },
+    }
+    render(
+      <EngineStateProvider repository={repository}>
+        <App />
+      </EngineStateProvider>,
+    )
+    expect((await screen.findByRole('alert')).textContent).toMatch(/couldn't save/i)
+  })
+
   it('"План сесії" now shows the engine-driven Today content, not the old SessionPlanPanel', async () => {
     renderApp()
     fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))

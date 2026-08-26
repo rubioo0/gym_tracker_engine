@@ -1,5 +1,6 @@
 import type { WorkoutLog } from '../domain/workoutLog/types'
 import type { SpecializationBlock } from '../domain/specialization/types'
+import { localDateKey } from '../domain/dateUtils'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
@@ -59,7 +60,7 @@ export function projectUpcomingSessions(
     .sort((a, b) => (a.completedAt < b.completedAt ? -1 : 1))
 
   const pastEntries: CalendarEntry[] = logsInBlock.map((log) => ({
-    date: log.completedAt.slice(0, 10),
+    date: localDateKey(log.completedAt),
     isProjected: false,
     workoutLogId: log.id,
   }))
@@ -70,7 +71,7 @@ export function projectUpcomingSessions(
 
   const futureEntries: CalendarEntry[] = Array.from({ length: Math.max(countAhead, 0) }, (_, i) => {
     const projectedMs = lastKnownMs + (i + 1) * avgDays * MS_PER_DAY
-    return { date: new Date(projectedMs).toISOString().slice(0, 10), isProjected: true }
+    return { date: localDateKey(new Date(projectedMs)), isProjected: true }
   })
 
   return [...pastEntries, ...futureEntries]

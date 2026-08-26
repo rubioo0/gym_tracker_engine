@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getActiveGoalAndBlock, countSessionsInBlock } from './activeGoal'
+import { getActiveGoalAndBlock, countSessionsInBlock, workoutLogsInBlock } from './activeGoal'
 import { INITIAL_STATE, type PersistedState } from './state'
 import type { Goal } from '../domain/goals/types'
 import type { SpecializationBlock } from '../domain/specialization/types'
@@ -59,5 +59,28 @@ describe('countSessionsInBlock', () => {
 
   it('is zero for no logs at all (boundary condition)', () => {
     expect(countSessionsInBlock([], BLOCK)).toBe(0)
+  })
+})
+
+describe('workoutLogsInBlock', () => {
+  function log(completedAt: string): WorkoutLog {
+    return { id: completedAt, completedAt, exerciseLogs: [], successful: true }
+  }
+
+  it('excludes logs from a previous, unrelated block on the same exercise', () => {
+    // Regression: a previous block's top set must not be mistaken for the
+    // current block's progress — it used to make a freshly-created goal
+    // look already "target met" before a single session was logged.
+    const previousBlockLog = log('2026-07-01T00:00:00.000Z')
+    const currentBlockLog = log('2026-08-10T00:00:00.000Z')
+    expect(workoutLogsInBlock([previousBlockLog, currentBlockLog], BLOCK)).toEqual([currentBlockLog])
+  })
+
+  it('includes a log exactly at the block start time (boundary condition)', () => {
+    expect(workoutLogsInBlock([log(BLOCK.startedAt)], BLOCK)).toHaveLength(1)
+  })
+
+  it('is empty for no logs at all (boundary condition)', () => {
+    expect(workoutLogsInBlock([], BLOCK)).toEqual([])
   })
 })

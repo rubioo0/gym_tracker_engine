@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useEngineState } from './useEngineState'
-import { getActiveGoalAndBlock, countSessionsInBlock } from '../../application/activeGoal'
+import { getActiveGoalAndBlock, countSessionsInBlock, workoutLogsInBlock } from '../../application/activeGoal'
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
 import { prescribeSession, mostRecentTopSet } from '../../application/sessionPrescription'
@@ -78,7 +78,8 @@ export function FinishSessionTab() {
     )
   }
 
-  const currentWeightKg = mostRecentTopSet(state.workoutLogs, active.goal.exerciseId)?.weightKg ?? null
+  const blockWorkoutLogs = workoutLogsInBlock(state.workoutLogs, active.block)
+  const currentWeightKg = mostRecentTopSet(blockWorkoutLogs, active.goal.exerciseId)?.weightKg ?? null
   const renewalReason = checkGoalNeedsRenewal(active.goal, active.block, state.profile, currentWeightKg, new Date())
   if (renewalReason) {
     return (
@@ -110,7 +111,7 @@ export function FinishSessionTab() {
   })
 
   function seedEdits(): EditableExerciseLog[] {
-    const prescriptions = prescribeSession(slots, active!.goal, state.workoutLogs)
+    const prescriptions = prescribeSession(slots, active!.goal, blockWorkoutLogs)
     return prescriptions.map((p) => ({
       exerciseId: p.exerciseId,
       skipped: false,

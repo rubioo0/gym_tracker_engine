@@ -249,12 +249,18 @@ export function loadAppState(): AppState {
   }
 }
 
-export function saveAppState(state: AppState): void {
+/** Returns false (instead of throwing) if the write fails, e.g. localStorage quota exceeded — callers should surface that to the user rather than let it crash the app. */
+export function saveAppState(state: AppState): boolean {
   const payload: VersionedState = {
     version: STORAGE_VERSION,
     state,
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function clearAppState(): void {

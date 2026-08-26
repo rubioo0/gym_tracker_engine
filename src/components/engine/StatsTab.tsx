@@ -8,8 +8,39 @@ import { MUSCLE_GROUPS } from '../../domain/muscles/muscleTaxonomy'
 import type { Goal } from '../../domain/goals/types'
 import type { ExperienceLevel } from '../../domain/profile/types'
 import type { WorkoutLog } from '../../domain/workoutLog/types'
+import './StatsTab.css'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+interface MonthBucket {
+  label: string
+  key: string
+  count: number
+}
+
+/** Last 6 calendar months (oldest first), zero-filled — ported from the old app's StatsTab.tsx so a month with no training still shows as an empty bar rather than disappearing from the axis. */
+function buildEmptyMonths(today: Date): MonthBucket[] {
+  const months: MonthBucket[] = []
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const label = d.toLocaleString('en-US', { month: 'short', year: '2-digit' })
+    months.push({ label, key, count: 0 })
+  }
+  return months
+}
+
+function buildMonthlyActivity(workoutLogs: readonly WorkoutLog[], asOf: Date): MonthBucket[] {
+  const monthlyMap = new Map<string, number>()
+  const sixMonthsAgo = new Date(asOf.getFullYear(), asOf.getMonth() - 5, 1)
+  for (const log of workoutLogs) {
+    const d = new Date(log.completedAt)
+    if (d < sixMonthsAgo) continue
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    monthlyMap.set(key, (monthlyMap.get(key) ?? 0) + 1)
+  }
+  return buildEmptyMonths(asOf).map((m) => ({ ...m, count: monthlyMap.get(m.key) ?? 0 }))
+}
 
 function weekStart(date: Date): number {
   const d = new Date(date)
@@ -86,6 +117,10 @@ export function StatsTab() {
     .filter((x): x is { id: string; best: { weightKg: number; completedAt: string } } => Boolean(x.best))
     .sort((a, b) => b.best.weightKg - a.best.weightKg)
 
+  // 2b. Monthly activity, last 6 months, zero-filled.
+  const monthlyActivity = buildMonthlyActivity(logs, asOf)
+  const maxMonthCount = Math.max(...monthlyActivity.map((m) => m.count), 1)
+
   // 6. Per-muscle ACWR/volume: only muscles with any logged data at all.
   const muscleStats = MUSCLE_GROUPS.map((muscle) => {
     const entries = buildMuscleLoadEntries(logs, muscle.id)
@@ -133,6 +168,29 @@ export function StatsTab() {
         <p>
           Avg workouts/week (last 12 weeks): <strong>{avgPerWeek}</strong>
         </p>
+      </article>
+
+      <article className="card card-wide">
+        <h2>Activity (months)</h2>
+        {totalWorkouts === 0 ? (
+          <p className="muted">No data yet.</p>
+        ) : (
+          <div className="stats-bar-chart">
+            {monthlyActivity.map(({ label, key, count }) => (
+              <div key={key} className="stats-bar-col">
+                <div className="stats-bar-track">
+                  <div
+                    className="stats-bar-fill"
+                    style={{ height: `${Math.round((count / maxMonthCount) * 100)}%` }}
+                    title={`${count} workout(s)`}
+                  />
+                </div>
+                <span className="stats-bar-label">{count}</span>
+                <span className="stats-bar-month">{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </article>
 
       <article className="card">

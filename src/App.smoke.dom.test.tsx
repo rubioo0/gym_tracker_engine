@@ -302,13 +302,19 @@ describe('App smoke test', () => {
     expect(await screen.findByText('No active goal yet. Create one on the Автопрофіль tab to start training.')).toBeTruthy()
   })
 
-  it('"Статистика" renders KPIs, goal progress, PRs, and the new per-muscle ACWR section without throwing', async () => {
+  it('"Статистика" renders KPIs, goal progress, PRs, the monthly bar chart, and the per-muscle ACWR section with a concrete computed value', async () => {
+    // completedAt is relative to "now" (not a fixed date) so the acute-load
+    // window assertion below stays correct regardless of which real day
+    // this suite runs on -- StatsTab.tsx computes `asOf = new Date()`
+    // internally with no injectable clock, so a fixed past date would
+    // eventually fall outside the 7-day acute window and start failing.
+    const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
     const seedWithLog: PersistedState = {
       ...SEEDED_STATE_WITH_ACTIVE_GOAL,
       workoutLogs: [
         {
           id: 'w1',
-          completedAt: '2026-08-20T10:00:00.000Z',
+          completedAt: oneDayAgo,
           successful: true,
           exerciseLogs: [{ exerciseId: 'Barbell_Curl', skipped: false, sets: [{ weightKg: 22.5, reps: 5, role: 'working' }] }],
         },
@@ -318,8 +324,13 @@ describe('App smoke test', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Статистика' }))
     expect(await screen.findByText('Total workouts')).toBeTruthy()
     expect(screen.getAllByText('Barbell Curl').length).toBeGreaterThan(0)
+    expect(screen.getByText('Activity (months)')).toBeTruthy()
+    expect(document.querySelectorAll('.stats-bar-fill').length).toBe(6) // 6 zero-filled months, always rendered
     expect(screen.getByText('Biceps')).toBeTruthy() // per-muscle ACWR section
-    expect(screen.getAllByText(/Acute \(7d\)/).length).toBeGreaterThan(0) // biceps (primary) + forearms (secondary)
+    // Concrete computed value, not just label presence: biceps is
+    // Barbell_Curl's primary muscle, one working set logged yesterday ->
+    // 1 hard set, safely inside the 7-day acute window.
+    expect(screen.getByText(/Acute \(7d\): 1 hard sets/)).toBeTruthy()
   })
 
   it('"Статистика" renders empty-state messages on a fresh state without throwing', async () => {

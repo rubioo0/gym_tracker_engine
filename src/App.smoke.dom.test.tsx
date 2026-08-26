@@ -347,4 +347,34 @@ describe('App smoke test', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Фото' }))
     expect(await screen.findByText('Фото прогресу')).toBeTruthy()
   })
+
+  it(
+    'exercise cards on План сесії show reps/weight and recent history, not just a bare set count -- ' +
+      'UI-parity gap reported: "old app has on card sets, reps, weight, last three progression insides. in new app nothing"',
+    async () => {
+      const seedWithLog: PersistedState = {
+        ...SEEDED_STATE_WITH_ACTIVE_GOAL,
+        workoutLogs: [
+          {
+            id: 'w1',
+            completedAt: '2026-08-20T10:00:00.000Z',
+            successful: true,
+            exerciseLogs: [{ exerciseId: 'Barbell_Curl', skipped: false, sets: [{ weightKg: 20, reps: 5, role: 'working' }] }],
+          },
+        ],
+      }
+      renderApp(seedWithLog)
+
+      fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Assemble my session' }))
+
+      expect(await screen.findAllByText('Reps')).not.toHaveLength(0)
+      expect(screen.getAllByText('Weight').length).toBeGreaterThan(0)
+      expect(screen.getByText('20kg×5 (2026-08-20)')).toBeTruthy()
+
+      // Opening the card's detail modal shows the fuller history section too.
+      fireEvent.click(screen.getByText('Barbell Curl'))
+      expect(await screen.findByText(/History \(1 session/)).toBeTruthy()
+    },
+  )
 })

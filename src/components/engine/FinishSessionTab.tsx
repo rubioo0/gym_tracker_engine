@@ -4,6 +4,7 @@ import { getActiveGoalAndBlock, countSessionsInBlock } from '../../application/a
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
 import { prescribeSession, mostRecentTopSet } from '../../application/sessionPrescription'
+import { recentExerciseHistory } from '../../application/exerciseHistory'
 import { getExerciseById } from '../../domain/exerciseLibrary/exerciseLibrary'
 import type { ExerciseDifficulty, SetEntry, WorkoutLog } from '../../domain/workoutLog/types'
 
@@ -170,9 +171,19 @@ export function FinishSessionTab() {
 
         {currentEdits.map((log) => {
           const exercise = getExerciseById(log.exerciseId)
+          const history = recentExerciseHistory(state.workoutLogs, log.exerciseId, 3)
           return (
             <article key={log.exerciseId} className="log-exercise-card">
               <h3>{exercise?.nameEn ?? log.exerciseId}</h3>
+              {history.length > 0 ? (
+                <div className="exercise-card-history">
+                  {history.map((entry) => (
+                    <span key={entry.completedAt} className="exercise-history-chip">
+                      {entry.weightKg}kg×{entry.reps} ({entry.completedAt.slice(0, 10)})
+                    </span>
+                  ))}
+                </div>
+              ) : null}
 
               <label className="log-checkbox-field">
                 Skip this exercise

@@ -3,7 +3,8 @@ import { useEngineState } from './useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock } from '../../application/activeGoal'
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
-import { mostRecentTopSet } from '../../application/sessionPrescription'
+import { mostRecentTopSet, prescribeSession } from '../../application/sessionPrescription'
+import { recentExerciseHistory } from '../../application/exerciseHistory'
 import { ExerciseDetailModal } from './ExerciseDetailModal'
 import './EngineTabs.css'
 
@@ -127,6 +128,11 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
     noGymToday,
     availableMinutes,
   })
+  // Prescription (target weight/reps) and recent history, same math the
+  // Завершити screen already uses — shown here too so the card carries the
+  // same at-a-glance info the old app's exercise cards did (sets/reps/
+  // weight/last-3-history), not just a bare set count.
+  const prescriptions = prescribeSession(slots, active.goal, state.workoutLogs)
 
   return (
     <section className="panel-grid">
@@ -141,32 +147,57 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
           <p>Nothing to show — try a larger time budget.</p>
         ) : (
           <ol className="exercise-card-list" aria-label="Today's exercises">
-            {slots.map((slot, i) => (
-              <li key={i} className="exercise-card-item">
-                <button
-                  type="button"
-                  className={slot.isGoalPriority ? 'exercise-card exercise-card-active' : 'exercise-card'}
-                  aria-pressed={openSlotIndex === i}
-                  onClick={() => setOpenSlotIndex(i)}
-                >
-                  <div className="exercise-card-header">
-                    <span className="exercise-card-order">#{i + 1}</span>
-                    {slot.isGoalPriority ? <span className="exercise-type-badge">Goal</span> : null}
-                  </div>
-                  <h3 className="exercise-card-title">{slot.exercise.nameEn}</h3>
-                  <div className="exercise-card-metrics">
-                    <span className="exercise-chip">
-                      <strong>Sets</strong>
-                      {slot.sets}
-                    </span>
-                    <span className="exercise-chip">
-                      <strong>Muscle</strong>
-                      {slot.muscleGroupId}
-                    </span>
-                  </div>
-                </button>
-              </li>
-            ))}
+            {slots.map((slot, i) => {
+              const working = prescriptions[i]?.sets.find((s) => s.role === 'working')
+              const history = recentExerciseHistory(state.workoutLogs, slot.exercise.id, 3)
+              return (
+                <li key={i} className="exercise-card-item">
+                  <button
+                    type="button"
+                    className={slot.isGoalPriority ? 'exercise-card exercise-card-active' : 'exercise-card'}
+                    aria-pressed={openSlotIndex === i}
+                    onClick={() => setOpenSlotIndex(i)}
+                  >
+                    <div className="exercise-card-header">
+                      <span className="exercise-card-order">#{i + 1}</span>
+                      {slot.isGoalPriority ? <span className="exercise-type-badge">Goal</span> : null}
+                    </div>
+                    <h3 className="exercise-card-title">{slot.exercise.nameEn}</h3>
+                    <div className="exercise-card-metrics">
+                      <span className="exercise-chip">
+                        <strong>Sets</strong>
+                        {slot.sets}
+                      </span>
+                      {working ? (
+                        <>
+                          <span className="exercise-chip">
+                            <strong>Reps</strong>
+                            {working.targetReps}
+                          </span>
+                          <span className="exercise-chip">
+                            <strong>Weight</strong>
+                            {working.weightKg}kg
+                          </span>
+                        </>
+                      ) : null}
+                      <span className="exercise-chip">
+                        <strong>Muscle</strong>
+                        {slot.muscleGroupId}
+                      </span>
+                    </div>
+                    {history.length > 0 ? (
+                      <div className="exercise-card-history">
+                        {history.map((entry) => (
+                          <span key={entry.completedAt} className="exercise-history-chip">
+                            {entry.weightKg}kg×{entry.reps} ({entry.completedAt.slice(0, 10)})
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </button>
+                </li>
+              )
+            })}
           </ol>
         )}
         {slots.length > 0 ? (
@@ -183,6 +214,8 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
           exercise={slots[openSlotIndex].exercise}
           sets={slots[openSlotIndex].sets}
           isGoalPriority={slots[openSlotIndex].isGoalPriority}
+          prescribedSets={prescriptions[openSlotIndex]?.sets}
+          history={recentExerciseHistory(state.workoutLogs, slots[openSlotIndex].exercise.id, 10)}
           onClose={() => setOpenSlotIndex(null)}
         />
       ) : null}

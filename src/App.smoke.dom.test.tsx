@@ -70,7 +70,6 @@ describe('App smoke test', () => {
     renderApp()
     for (const label of [
       'Головна',
-      'Програми',
       'Тренування',
       'План сесії',
       'Завершити',
@@ -84,6 +83,10 @@ describe('App smoke test', () => {
       expect(screen.getByRole('button', { name: label })).toBeTruthy()
     }
     expect(screen.queryByRole('button', { name: 'Сьогодні' })).toBeNull()
+    // Regression: the Programs tab (template CRUD/AI generator/CSV import)
+    // was removed entirely — it had zero effect on real training, since
+    // nothing in session assembly ever read ProgramTemplate data.
+    expect(screen.queryByRole('button', { name: 'Програми' })).toBeNull()
   })
 
   it('shows the home tab by default without throwing', () => {
@@ -364,15 +367,7 @@ describe('App smoke test', () => {
     },
   )
 
-  it('"Програми" (Programs) tab renders without throwing, and the orphaned "start run" actions are gone', async () => {
-    renderApp()
-    fireEvent.click(screen.getByRole('button', { name: 'Програми' }))
-    expect(await screen.findByText('Шаблони програм')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Розпочати тренування' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'View Plan' })).toBeNull()
-  })
-
-  it('"Фото" (Photos) tab renders without throwing', async () => {
+it('"Фото" (Photos) tab renders without throwing', async () => {
     renderApp()
     fireEvent.click(screen.getByRole('button', { name: 'Фото' }))
     expect(await screen.findByText('Фото прогресу')).toBeTruthy()

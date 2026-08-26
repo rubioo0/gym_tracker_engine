@@ -9,26 +9,12 @@ import {
   saveAppState,
 } from './data/storage'
 import { seededProgramTemplates } from './data/seed'
-import {
-  findImportedTemplateByFileName,
-  upsertProgramTemplateFromCsv,
-} from './data/csvTemplateUpsert'
-import { exportProgramTemplateToCsv } from './data/csvExport'
-import { extractCsvImportMetadata } from './data/csvImport'
 import { exportWorkoutLogsToExcel, buildExcelLogFileName } from './data/excelLogExport'
 import { importWorkoutLogsFromExcel } from './data/excelLogImport'
-import { getTemplateById } from './domain/logic'
 import { appReducer } from './domain/reducer'
 import { StatsTab as EngineStatsTab } from './components/engine/StatsTab'
-import { PlanEditorModal } from './components/PlanEditorModal'
 import { AIAssistant } from './components/AIAssistant'
 import { ProgressPhotos } from './components/photos/ProgressPhotos'
-import { AIGeneratorPanel } from './components/programs/AIGeneratorPanel'
-import type {
-  ProgramMode,
-  ProgramTemplate,
-  TrackType,
-} from './domain/types'
 import { loadAISettings } from './services/geminiService'
 import { SetupTab } from './components/engine/SetupTab'
 import { TodayTab } from './components/engine/TodayTab'
@@ -44,7 +30,6 @@ import './App.css'
 
 type AppTab =
   | 'home'
-  | 'programs'
   | 'runs'
   | 'session'
   | 'log'
@@ -57,7 +42,6 @@ type AppTab =
 
 const tabs: { id: AppTab; label: string }[] = [
   { id: 'home', label: 'Головна' },
-  { id: 'programs', label: 'Програми' },
   { id: 'runs', label: 'Тренування' },
   { id: 'session', label: 'План сесії' },
   { id: 'log', label: 'Завершити' },
@@ -68,14 +52,6 @@ const tabs: { id: AppTab; label: string }[] = [
   { id: 'data', label: 'Дані' },
   { id: 'engineSetup', label: 'Автопрофіль' },
 ]
-
-function rewriteCsvSourceFileName(csvText: string, sourceFileName: string): string {
-  const replacement = `training-os-metadata,source-file-name,${sourceFileName}`
-  return csvText.replace(
-    /(^|\r?\n)training-os-metadata,source-file-name,[^\r\n]*/i,
-    (_, prefix: string) => `${prefix}${replacement}`,
-  )
-}
 
 function App() {
   const [state, dispatch] = useReducer(appReducer, undefined, loadAppState)
@@ -88,21 +64,6 @@ function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('home')
   const [importText, setImportText] = useState('')
   const [dataMessage, setDataMessage] = useState('')
-  const [csvRawText, setCsvRawText] = useState('')
-  const [csvFileName, setCsvFileName] = useState('')
-  const [csvUploadedFileName, setCsvUploadedFileName] = useState('')
-  const [csvMetadataSourceFileName, setCsvMetadataSourceFileName] = useState('')
-  const [csvIgnoreMetadataSourceFileName, setCsvIgnoreMetadataSourceFileName] = useState(false)
-  const [csvProgramName, setCsvProgramName] = useState('Imported CSV Program')
-  const [csvTrack, setCsvTrack] = useState<TrackType>('upper')
-  const [csvMode, setCsvMode] = useState<ProgramMode>('main')
-  const [csvFocusTarget, setCsvFocusTarget] = useState('biceps')
-  const [csvDurationWeeks, setCsvDurationWeeks] = useState(8)
-  const [csvHardOverwrite, setCsvHardOverwrite] = useState(false)
-  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([])
-  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
-  const [createProgramOpen, setCreateProgramOpen] = useState(false)
-  const [aiGenTemplate, setAiGenTemplate] = useState<ProgramTemplate | null>(null)
 
   useEffect(() => {
     const saved = saveAppState(state)
@@ -114,54 +75,6 @@ function App() {
       })
     }
   }, [state])
-
-  const templatesByMode = useMemo(() => {
-    const grouped: Record<string, ProgramTemplate[]> = {
-      main: [],
-      travel: [],
-      maintenance: [],
-      backup: [],
-    }
-
-    state.programTemplates.forEach((template) => {
-      grouped[template.mode].push(template)
-    })
-
-    return grouped
-  }, [state.programTemplates])
-
-  const selectedTemplateSet = useMemo(
-    () => new Set(selectedTemplateIds),
-    [selectedTemplateIds],
-  )
-
-  const csvImportPreview = useMemo(() => {
-    if (!csvRawText.trim()) {
-      return null
-    }
-
-    const targetFileName = csvIgnoreMetadataSourceFileName
-      ? csvUploadedFileName || csvFileName
-      : csvMetadataSourceFileName || csvUploadedFileName || csvFileName
-    const resolvedTemplate = targetFileName
-      ? findImportedTemplateByFileName(state.programTemplates, targetFileName)
-      : undefined
-
-    return {
-      targetFileName,
-      resolvedTemplate,
-      usesMetadataSource:
-        csvMetadataSourceFileName.length > 0 &&
-        csvMetadataSourceFileName !== csvUploadedFileName,
-    }
-  }, [
-    csvFileName,
-    csvMetadataSourceFileName,
-      csvIgnoreMetadataSourceFileName,
-    csvRawText,
-    csvUploadedFileName,
-    state.programTemplates,
-  ])
 
   const aiSettings = loadAISettings()
 
@@ -184,48 +97,6 @@ function App() {
     })
     engineDispatch({ type: 'REPLACE_STATE', state: ENGINE_INITIAL_STATE })
     setDataMessage('State reset to seeded templates. Autonomous-engine data erased too.')
-  }
-
-  function handleDeleteTemplate(templateId: string, templateName: string): void {
-    const approved = window.confirm(
-      `Delete program "${templateName}"? This cannot be undone.`,
-    )
-    if (!approved) {
-      return
-    }
-
-    dispatch({
-      type: 'deleteTemplates',
-      templateIds: [templateId],
-    })
-    setSelectedTemplateIds((previous) =>
-      previous.filter((selectedId) => selectedId !== templateId),
-    )
-    setDataMessage(`Deleted program "${templateName}".`)
-  }
-
-  function handleBulkDeleteTemplates(): void {
-    const selectedTemplates = state.programTemplates.filter((template) =>
-      selectedTemplateSet.has(template.id),
-    )
-
-    if (selectedTemplates.length === 0) {
-      return
-    }
-
-    const approved = window.confirm(
-      `Delete ${selectedTemplates.length} selected program(s)? This cannot be undone.`,
-    )
-    if (!approved) {
-      return
-    }
-
-    dispatch({
-      type: 'deleteTemplates',
-      templateIds: selectedTemplates.map((template) => template.id),
-    })
-    setSelectedTemplateIds([])
-    setDataMessage(`Deleted ${selectedTemplates.length} selected program(s).`)
   }
 
   function handleExportLogsExcel(): void {
@@ -324,33 +195,6 @@ function App() {
     )
   }
 
-  function handleExportCsvTemplate(template: ProgramTemplate): void {
-    try {
-      const result = exportProgramTemplateToCsv(template)
-      const excelFriendlyCsvText =
-        result.csvText.startsWith('\uFEFF') ? result.csvText : `\uFEFF${result.csvText}`
-      const csvBlob = new Blob([excelFriendlyCsvText], {
-        type: 'text/csv;charset=utf-8',
-      })
-      const csvUrl = URL.createObjectURL(csvBlob)
-      const link = document.createElement('a')
-      link.href = csvUrl
-      link.download = result.fileName
-      link.click()
-      window.setTimeout(() => URL.revokeObjectURL(csvUrl), 0)
-
-      setDataMessage(
-        result.skippedSessionCount > 0
-          ? `CSV exported: ${result.fileName} (${result.exportedExerciseCount} exercises from the first session).`
-          : `CSV exported: ${result.fileName}`,
-      )
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown CSV export error.'
-      setDataMessage(`CSV export failed: ${message}`)
-    }
-  }
-
   function handleImportState(): void {
     const imported = importStateFromJson(importText)
     if (!imported) {
@@ -382,147 +226,6 @@ function App() {
       setDataMessage(`Imported backup file: ${file.name}`)
     } catch {
       setDataMessage('Failed to read backup file.')
-    }
-  }
-
-  async function handleCsvFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) {
-      return
-    }
-
-    try {
-      const text = await file.text()
-      const metadata = extractCsvImportMetadata(text)
-      const effectiveFileName = metadata.sourceFileName?.trim() || file.name
-      const uploadedFileName = file.name
-      const metadataSourceFileName = metadata.sourceFileName?.trim() ?? ''
-
-      setCsvRawText(text)
-      setCsvFileName(effectiveFileName)
-      setCsvUploadedFileName(uploadedFileName)
-      setCsvMetadataSourceFileName(metadataSourceFileName)
-
-      if (metadata.programName) {
-        setCsvProgramName(metadata.programName)
-      }
-
-      if (metadata.mode) {
-        setCsvMode(metadata.mode)
-      }
-
-      if (metadata.track) {
-        setCsvTrack(metadata.track)
-      }
-
-      if (metadata.focusTarget) {
-        setCsvFocusTarget(metadata.focusTarget)
-      }
-
-      if (typeof metadata.durationWeeks === 'number') {
-        setCsvDurationWeeks(metadata.durationWeeks)
-      }
-
-      if (!metadata.programName && csvProgramName === 'Imported CSV Program') {
-        setCsvProgramName(file.name.replace(/\.[^/.]+$/, ''))
-      }
-
-      setDataMessage(
-        metadata.templateId
-          ? `Loaded CSV: ${file.name} (program metadata detected).`
-          : metadataSourceFileName && metadataSourceFileName !== uploadedFileName
-            ? `Loaded CSV: ${file.name}. Metadata source-file-name is "${metadataSourceFileName}".`
-            : `Loaded CSV: ${file.name}`,
-      )
-    } catch {
-      setDataMessage('Failed to read CSV file.')
-    }
-  }
-
-  function handleImportCsvTemplate(): void {
-    if (!csvRawText.trim()) {
-      setDataMessage('Select a CSV file first.')
-      return
-    }
-
-    if (csvHardOverwrite) {
-      const approved = window.confirm(
-        'Hard overwrite is enabled: this will replace the matched template\'s exercises and drop any preserved progression-rule links. Continue?',
-      )
-      if (!approved) {
-        return
-      }
-    }
-
-    const effectiveCsvText =
-      csvIgnoreMetadataSourceFileName && csvUploadedFileName
-        ? rewriteCsvSourceFileName(csvRawText, csvUploadedFileName)
-        : csvRawText
-
-    try {
-      const result = upsertProgramTemplateFromCsv({
-        templates: state.programTemplates,
-        csvText: effectiveCsvText,
-        fileName: csvUploadedFileName || csvFileName || undefined,
-        programName: csvProgramName,
-        mode: csvMode,
-        track: csvTrack,
-        focusTarget: csvFocusTarget,
-        durationWeeks: csvDurationWeeks,
-        hardOverwrite: csvHardOverwrite,
-      })
-
-      if (result.status === 'conflict') {
-        const details = result.details
-        const conflictParts: string[] = []
-
-        if (details.templateId && details.resolvedTemplateIdByTemplateId) {
-          conflictParts.push(
-            `template-id "${details.templateId}" -> "${details.resolvedTemplateIdByTemplateId}"`,
-          )
-        }
-
-        if (
-          details.metadataSourceFileName &&
-          details.resolvedTemplateIdBySourceFileName
-        ) {
-          conflictParts.push(
-            `source-file-name "${details.metadataSourceFileName}" -> "${details.resolvedTemplateIdBySourceFileName}"`,
-          )
-        }
-
-        const conflictDetails =
-          conflictParts.length > 0 ? ` (${conflictParts.join('; ')})` : ''
-
-        setDataMessage(`CSV import blocked: ${result.message}${conflictDetails}`)
-        return
-      }
-
-      dispatch({
-        type: 'replaceTemplates',
-        templates: result.nextTemplates,
-      })
-
-      const warningSuffix =
-        result.warnings.length > 0 ? ` Warnings: ${result.warnings.join(' ')}` : ''
-
-      if (result.operation === 'updated') {
-        const overwritePrefix = csvHardOverwrite ? 'Hard overwrite enabled. ' : ''
-        setDataMessage(
-          `${overwritePrefix}Updated "${result.template.name}" from ${csvFileName}: ${result.diff.updatedExercises} changed, ${result.diff.addedExercises} added, ${result.diff.removedExercises} removed, ${result.diff.preservedExerciseIds} progression IDs preserved, ${result.diff.preservedSessions} non-imported sessions preserved.${warningSuffix}`,
-        )
-      } else {
-        setDataMessage(
-          `Imported "${result.template.name}" with ${result.diff.totalExercises} exercises.${warningSuffix}`,
-        )
-      }
-
-      setActiveTab('programs')
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown CSV import error.'
-      setDataMessage(`CSV import failed: ${message}`)
     }
   }
 
@@ -568,149 +271,6 @@ function App() {
 
       {activeTab === 'home' && (
         <HomeTab onViewPlan={() => handleTabChange('session')} onGoToLog={() => handleTabChange('log')} />
-      )}
-
-      {activeTab === 'programs' && (
-        <section className="panel-grid">
-          <article className="card card-wide">
-            <AIGeneratorPanel
-              apiKey={aiSettings.apiKey}
-              model={aiSettings.model}
-              onGenerated={(template) => setAiGenTemplate(template)}
-            />
-          </article>
-
-          <article className="card card-wide">
-            <h2>Шаблони програм</h2>
-            <div className="action-row">
-              <button
-                type="button"
-                onClick={() => setCreateProgramOpen(true)}
-              >
-                + Створити програму
-              </button>
-              <button
-                type="button"
-                className="btn-danger"
-                onClick={handleBulkDeleteTemplates}
-                disabled={selectedTemplateIds.length === 0}
-              >
-                Delete selected ({selectedTemplateIds.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedTemplateIds([])}
-                disabled={selectedTemplateIds.length === 0}
-              >
-                Clear selection
-              </button>
-            </div>
-
-            {Object.entries(templatesByMode).map(([mode, templates]) => {
-              const modeTemplateIds = new Set(templates.map((template) => template.id))
-              const allModeSelected =
-                templates.length > 0 &&
-                templates.every((template) => selectedTemplateSet.has(template.id))
-              const hasModeSelection = templates.some((template) =>
-                selectedTemplateSet.has(template.id),
-              )
-
-              return (
-                <div key={mode} className="template-group">
-                  <div className="template-group-header">
-                    <h3>{mode.toUpperCase()}</h3>
-                    {templates.length > 0 ? (
-                      <div className="action-row">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSelectedTemplateIds((previous) => {
-                              const next = new Set(previous)
-                              templates.forEach((template) => next.add(template.id))
-                              return Array.from(next)
-                            })
-                          }
-                          disabled={allModeSelected}
-                        >
-                          Select all
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSelectedTemplateIds((previous) =>
-                              previous.filter((selectedId) => !modeTemplateIds.has(selectedId)),
-                            )
-                          }
-                          disabled={!hasModeSelection}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {templates.length === 0 ? (
-                    <p className="muted">Немає шаблонів у цьому режимі.</p>
-                  ) : (
-                    <ul className="list-plain">
-                      {templates.map((template) => (
-                        <li key={template.id} className="item-row">
-                          <div>
-                            <label className="item-select-label">
-                              <input
-                                type="checkbox"
-                                checked={selectedTemplateSet.has(template.id)}
-                                onChange={(event) =>
-                                  setSelectedTemplateIds((previous) => {
-                                    if (event.target.checked) {
-                                      return previous.includes(template.id)
-                                        ? previous
-                                        : [...previous, template.id]
-                                    }
-
-                                    return previous.filter(
-                                      (selectedId) => selectedId !== template.id,
-                                    )
-                                  })
-                                }
-                              />
-                              <strong>{template.name}</strong>
-                            </label>
-                            <div className="muted">
-                              Напрямок: {template.track} | Фокус: {template.focusTarget} | Сесії:{' '}
-                              {template.sessions.length}
-                            </div>
-                          </div>
-                          <div className="action-row">
-                            <button
-                              type="button"
-                              onClick={() => setEditingTemplateId(template.id)}
-                            >
-                              Edit Plan
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleExportCsvTemplate(template)}
-                            >
-                              Export CSV
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteTemplate(template.id, template.name)}
-                              className="btn-danger"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )
-            })}
-          </article>
-        </section>
       )}
 
       {activeTab === 'runs' && <FocusTab />}
@@ -797,149 +357,11 @@ function App() {
             </div>
 
             <div className="template-group">
-              <h3>CSV Program Import / Update</h3>
-              <p className="muted">
-                Choose your template CSV (for example Book 2(...).csv), set basic
-                metadata, then import. Uploading the same filename updates the
-                existing imported program instead of creating a duplicate.
-              </p>
-
-              <label className="stacked-field">
-                CSV file
-                <input type="file" accept=".csv,text/csv" onChange={handleCsvFileChange} />
-              </label>
-
-              {csvUploadedFileName ? (
-                <p className="muted">Uploaded file: {csvUploadedFileName}</p>
-              ) : null}
-
-              {csvMetadataSourceFileName ? (
-                <p className="muted">CSV metadata source-file-name: {csvMetadataSourceFileName}</p>
-              ) : null}
-
-              {csvImportPreview?.targetFileName ? (
-                <p className="muted">Resolved update target filename: {csvImportPreview.targetFileName}</p>
-              ) : null}
-
-              {csvImportPreview?.resolvedTemplate ? (
-                <p className="muted">
-                  Preview: will update template "{csvImportPreview.resolvedTemplate.name}" ({csvImportPreview.resolvedTemplate.track} / {csvImportPreview.resolvedTemplate.focusTarget})
-                </p>
-              ) : csvRawText.trim() ? (
-                <p className="muted">Preview: no existing template matched. Import will create a new template.</p>
-              ) : null}
-
-              {csvImportPreview?.usesMetadataSource ? (
-                <p className="note">
-                  This CSV carries source-file-name metadata, so matching uses that value instead of the uploaded file name.
-                </p>
-              ) : null}
-
-                      <label className="inline-field">
-                        Ignore CSV source-file-name metadata
-                        <input
-                          type="checkbox"
-                          checked={csvIgnoreMetadataSourceFileName}
-                          onChange={(event) => setCsvIgnoreMetadataSourceFileName(event.target.checked)}
-                        />
-                      </label>
-
-              <div className="action-row">
-                <label className="inline-field">
-                  Program name
-                  <input
-                    type="text"
-                    value={csvProgramName}
-                    onChange={(event) => setCsvProgramName(event.target.value)}
-                  />
-                </label>
-
-                <label className="inline-field">
-                  Mode
-                  <select
-                    value={csvMode}
-                    onChange={(event) => setCsvMode(event.target.value as ProgramMode)}
-                  >
-                    <option value="main">main</option>
-                    <option value="travel">travel</option>
-                    <option value="maintenance">maintenance</option>
-                    <option value="backup">backup</option>
-                  </select>
-                </label>
-
-                <label className="inline-field">
-                  Track
-                  <select
-                    value={csvTrack}
-                    onChange={(event) => setCsvTrack(event.target.value as TrackType)}
-                  >
-                    <option value="upper">upper</option>
-                    <option value="lower">lower</option>
-                    <option value="custom">custom</option>
-                  </select>
-                </label>
-
-                <label className="inline-field">
-                  Focus target
-                  <input
-                    type="text"
-                    value={csvFocusTarget}
-                    onChange={(event) => setCsvFocusTarget(event.target.value)}
-                  />
-                </label>
-
-                <label className="inline-field">
-                  Duration (weeks)
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={csvDurationWeeks}
-                    onChange={(event) => {
-                      const nextValue = Number(event.target.value)
-                      setCsvDurationWeeks(
-                        Number.isFinite(nextValue) && nextValue > 0
-                          ? Math.round(nextValue)
-                          : 8,
-                      )
-                    }}
-                  />
-                </label>
-
-                <label className="inline-field">
-                  Hard overwrite exercises
-                  <input
-                    type="checkbox"
-                    checked={csvHardOverwrite}
-                    onChange={(event) => setCsvHardOverwrite(event.target.checked)}
-                  />
-                </label>
-              </div>
-
-              <div className="action-row">
-                <button type="button" onClick={handleImportCsvTemplate}>
-                  Import / Update CSV Template
-                </button>
-              </div>
-            </div>
-
-            <div className="template-group">
               <h3>⚠️ Danger Zone</h3>
               <p className="muted">
                 Небезпечні операції — скидання та перезапис даних.
               </p>
               <div className="action-row">
-                <button
-                  type="button"
-                  onClick={() =>
-                    dispatch({
-                      type: 'replaceTemplates',
-                      templates: seededProgramTemplates,
-                    })
-                  }
-                >
-                  Replace Templates From Seed
-                </button>
                 <button type="button" onClick={handleResetAllData}>
                   Reset All Data
                 </button>
@@ -966,31 +388,6 @@ function App() {
       {activeTab === 'engineSetup' && <SetupTab oldWorkoutLogs={state.workoutLogs} />}
     </main>
 
-    {editingTemplateId !== null && (
-      <PlanEditorModal
-        template={getTemplateById(state.programTemplates, editingTemplateId) ?? null}
-        onSave={(template) => {
-          dispatch({ type: 'updateProgramTemplate', template })
-          setEditingTemplateId(null)
-        }}
-        onClose={() => setEditingTemplateId(null)}
-      />
-    )}
-
-    {(createProgramOpen || aiGenTemplate !== null) && (
-      <PlanEditorModal
-        template={aiGenTemplate}
-        onSave={(template) => {
-          dispatch({ type: 'addProgramTemplate', template })
-          setCreateProgramOpen(false)
-          setAiGenTemplate(null)
-        }}
-        onClose={() => {
-          setCreateProgramOpen(false)
-          setAiGenTemplate(null)
-        }}
-      />
-    )}
     <AIAssistant appState={state} onDispatch={dispatch} />
     </>
   )

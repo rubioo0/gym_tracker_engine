@@ -254,3 +254,9 @@ No `.catch()`; `setLoaded(true)` only runs inside `.then()`.
 - Also fixed a leftover instance of the Phase 0 block-scoping bug in `FocusTab.tsx` (`mostRecentTopSet` was still unscoped there — the audit finding only named `TodayTab`/`FinishSessionTab`).
 - Files touched: `App.smoke.dom.test.tsx`, `components/engine/CalendarTab.tsx`, `components/engine/FocusTab.tsx`; new `application/calendarDetail.ts`(+test), `data/engineExcelCalendarExport.ts`(+test), `components/engine/CalendarTab.css`.
 - Commit: `83922be`. Deploy: GitHub Actions run `32950323003`, confirmed live (spot-checked bundle `index-jeDgFXcQ.js`).
+
+### 2026-08-26 — Phase 3c: ported the monthly-activity bar chart, strengthened its test
+- **Fixed (user-approved: port the intent).** Статистика gained the 6-month zero-filled bar chart, ported from the dead `components/stats/StatsTab.tsx` (data/logic + CSS) before it was deleted.
+- Closed the audit's test-gap finding: the ACWR smoke test now asserts a concrete computed value ("1 hard sets"), not just label presence — using a `Date.now()`-relative log date so the assertion can't flake as real time passes (`StatsTab.tsx` computes `asOf = new Date()` internally, no injectable clock).
+- Files touched: `App.smoke.dom.test.tsx`, `components/engine/StatsTab.tsx`; new `components/engine/StatsTab.css`.
+- Commit: `52eefbd`. Deploy: GitHub Actions run `32950578319`, confirmed live (spot-checked bundle `index-D7jWJq46.js`).

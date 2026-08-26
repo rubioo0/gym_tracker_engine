@@ -260,3 +260,18 @@ No `.catch()`; `setLoaded(true)` only runs inside `.then()`.
 - Closed the audit's test-gap finding: the ACWR smoke test now asserts a concrete computed value ("1 hard sets"), not just label presence — using a `Date.now()`-relative log date so the assertion can't flake as real time passes (`StatsTab.tsx` computes `asOf = new Date()` internally, no injectable clock).
 - Files touched: `App.smoke.dom.test.tsx`, `components/engine/StatsTab.tsx`; new `components/engine/StatsTab.css`.
 - Commit: `52eefbd`. Deploy: GitHub Actions run `32950578319`, confirmed live (spot-checked bundle `index-D7jWJq46.js`).
+
+### 2026-08-26 — Phase 3d: deleted the now-superseded dead components
+- **Fixed (user-approved: port then delete).** Deleted `components/stats/StatsTab.tsx`(+css), `components/calendar/ProgramCalendarView.tsx`(+css), all four files under `components/session/`, and `data/excelCalendarExport.ts`(+test) — re-verified zero remaining importers via grep immediately before each deletion.
+- Lint's pre-existing-error baseline dropped from 12 to 10 (documented here, not left as tribal knowledge).
+- Deploy note: the live bundle hash was unchanged by this commit (`index-D7jWJq46.js` both before and after) — expected and a good sign, since it confirms these files were never actually bundled into the shipped app in the first place (truly dead, not just unreferenced-but-tree-shaken-differently).
+- Phase 3 (UX-parity porting + dead-component deletion) is now complete.
+- Commit: `82568da`. Deploy: GitHub Actions run `32950769303`, confirmed successful.
+
+### 2026-08-26 — Phase 4: wired up the autonomous layer
+- **Fixed (user-approved: wire it up now).** Focus rotation (`pickNextFocus`), gap-resumption weight suggestion, and ACWR-based deload suppression — all previously built, tested, and completely inert — are now live: `SetupTab.tsx` defaults the muscle picker to the least-recently-trained eligible muscle; `sessionPrescription.ts`'s `prescribeExercise` uses `suggestResumptionWeight` after a 14+ day gap and suppresses progression under a new `shouldDeloadGoalExercise` gate (ACWR over 1.3 ceiling OR 2+ consecutive held sessions), surfaced as a visible warning on План сесії/Завершити and in the exercise detail modal.
+- `Статистика`'s per-muscle section now also shows `maxSafeWeeklyLoad` ("Safe weekly ceiling") — passively surfaced rather than building a new "request a makeup session" interactive flow (`canAddMakeupSession`), judged out of proportion scope for this pass since no such flow exists in the UI to hook it into.
+- `acwr.ts`'s `exceedsCeiling` docstring no longer needed a fix — this wiring made its claim ("used by the plan-compression bound and the deload trigger") true rather than requiring a prose correction.
+- Updated `sessionPrescription.test.ts`'s existing cases to pin an explicit `asOf` next to their fixed historical log dates — without it, the new gap-detection math would make those tests' pass/fail depend on how many real days had elapsed since the dates were written, a flakiness class being actively fixed elsewhere this session, not introduced anew.
+- Files touched: `App.smoke.dom.test.tsx`, `application/sessionPrescription.ts`(+test), `components/engine/ExerciseDetailModal.tsx`, `components/engine/FinishSessionTab.tsx`, `components/engine/SetupTab.tsx`, `components/engine/StatsTab.tsx`, `components/engine/TodayTab.tsx`.
+- Commit: `5f3082f`. Deploy: GitHub Actions run `32952006262`, confirmed live (spot-checked bundle `index-C8CRe1y9.js`).

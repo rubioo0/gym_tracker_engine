@@ -215,4 +215,12 @@ No `.catch()`; `setLoaded(true)` only runs inside `.then()`.
 
 ## Resolution Log
 
-_(empty — filled in as fixes land)_
+### 2026-08-26 — Phase 0: critical data-safety and correctness bugs
+- **Fixed.** Engine IndexedDB save/load are no longer fire-and-forget (`components/engine/EngineStateProvider.tsx`) — a failed save or load now shows a visible banner instead of silently reverting data on next load.
+- **Fixed.** `saveAppState` (`data/storage.ts`) no longer throws uncaught on localStorage quota exceeded; returns `false` on failure and `App.tsx` surfaces a message instead of crashing to the root error boundary.
+- **Fixed.** CSV template hard-overwrite import (`App.tsx`'s `handleImportCsvTemplate`) now confirms via `window.confirm` before overwriting, matching every other destructive action on the Дані tab.
+- **Fixed.** `mostRecentTopSet` is now scoped to the active specialization block wherever it feeds goal-renewal checks or today's prescription (new `workoutLogsInBlock` helper in `application/activeGoal.ts`, used in `TodayTab.tsx`/`FinishSessionTab.tsx`) — a new goal on a previously-trained exercise can no longer be born already "target met" from an unrelated prior block. Display-only history chips intentionally still show all-time history.
+- **Fixed.** ACWR/cadence/muscle-load date bucketing now uses local calendar days consistently instead of mixing UTC-sliced dates with local "now" (new `domain/dateUtils.ts`, used in `acwr.ts`, `muscleLoadHistory.ts`, `sessionCadence.ts`) — fixes a day-boundary skew for non-UTC users.
+- Not addressed in this phase (by design, deferred to Phase 5): engine-state load-error UI still only shows a banner, individual tabs still show "Loading…" underneath rather than a distinct error view — judged sufficient for now per the plan's minimal-fix scope.
+- Files touched: `App.tsx`, `App.smoke.dom.test.tsx`, `application/activeGoal.ts`(+test), `application/muscleLoadHistory.ts`, `application/sessionCadence.ts`, `components/engine/EngineStateProvider.tsx`, `components/engine/FinishSessionTab.tsx`, `components/engine/TodayTab.tsx`, `data/storage.ts`, `domain/acwr/acwr.ts`, new `domain/dateUtils.ts`(+test).
+- Commit: `9497589`. Deploy: GitHub Actions run `32947676899`, confirmed live (spot-checked bundle `index-CAozryYb.js` for the new banner/confirm/message strings).

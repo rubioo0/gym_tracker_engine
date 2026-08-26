@@ -13,8 +13,6 @@ describe('isPersistedState', () => {
         goals: [],
         specializationBlocks: [],
         workoutLogs: [],
-        weighIns: [],
-        circumferenceMeasurements: [],
       }),
     ).toBe(true)
   })
@@ -37,8 +35,6 @@ describe('isPersistedState', () => {
         goals: 'not-an-array',
         specializationBlocks: [],
         workoutLogs: [],
-        weighIns: [],
-        circumferenceMeasurements: [],
       }),
     ).toBe(false)
   })
@@ -49,8 +45,6 @@ describe('isPersistedState', () => {
       goals: [],
       specializationBlocks: [],
       workoutLogs: [],
-      weighIns: [],
-      circumferenceMeasurements: [],
     }
     expect(isPersistedState(base)).toBe(true)
     expect(isPersistedState({ ...base, confirmedSessionInputs: null })).toBe(true)
@@ -63,8 +57,6 @@ describe('isPersistedState', () => {
       goals: [],
       specializationBlocks: [],
       workoutLogs: [],
-      weighIns: [],
-      circumferenceMeasurements: [],
     }
     expect(isPersistedState({ ...base, confirmedSessionInputs: 'not-an-object' })).toBe(false)
   })

@@ -2,7 +2,6 @@ import type { UserProfile } from '../domain/profile/types'
 import type { Goal } from '../domain/goals/types'
 import type { SpecializationBlock } from '../domain/specialization/types'
 import type { WorkoutLog } from '../domain/workoutLog/types'
-import type { WeighIn, CircumferenceMeasurement } from '../domain/measurements/types'
 
 /**
  * Everything persisted between sessions. A single blob in one IndexedDB
@@ -46,8 +45,6 @@ export interface PersistedState {
   goals: Goal[]
   specializationBlocks: SpecializationBlock[]
   workoutLogs: WorkoutLog[]
-  weighIns: WeighIn[]
-  circumferenceMeasurements: CircumferenceMeasurement[]
   confirmedSessionInputs: ConfirmedSessionInputs | null
 }
 
@@ -56,12 +53,10 @@ export const INITIAL_STATE: PersistedState = {
   goals: [],
   specializationBlocks: [],
   workoutLogs: [],
-  weighIns: [],
-  circumferenceMeasurements: [],
   confirmedSessionInputs: null,
 }
 
-/** Runtime shape check for imported JSON — see ui/SetupScreen.tsx's import flow. Deliberately loose (checks top-level keys/types only, not deep validation) since this only guards against importing an unrelated/corrupt file, not a full schema validator. */
+/** Runtime shape check for imported JSON — see ui/SetupScreen.tsx's import flow. Deliberately loose (checks top-level keys/types only, not deep validation) since this only guards against importing an unrelated/corrupt file, not a full schema validator. Extra unknown fields (e.g. weighIns/circumferenceMeasurements in a backup exported before that dead schema was removed) are harmlessly ignored, not rejected. */
 export function isPersistedState(value: unknown): value is PersistedState {
   if (typeof value !== 'object' || value === null) return false
   const v = value as Record<string, unknown>
@@ -70,8 +65,6 @@ export function isPersistedState(value: unknown): value is PersistedState {
     Array.isArray(v.goals) &&
     Array.isArray(v.specializationBlocks) &&
     Array.isArray(v.workoutLogs) &&
-    Array.isArray(v.weighIns) &&
-    Array.isArray(v.circumferenceMeasurements) &&
     (v.confirmedSessionInputs === null ||
       v.confirmedSessionInputs === undefined ||
       typeof v.confirmedSessionInputs === 'object')

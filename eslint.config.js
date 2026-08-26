@@ -1,3 +1,9 @@
+// As of the 2026-08-26 audit cleanup (see AUDIT.md), `npm run lint` reports
+// exactly 10 pre-existing errors, 0 warnings -- all in legacy code inherited
+// from the original hand-built app (test-logic.ts, storage.ts/.test.ts,
+// AIAssistant.tsx, main.tsx) that predates this project's own lint
+// discipline. New code should not add to that count; if a change legitimately
+// reduces it (e.g. deleting one of the flagged files), update this number.
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'

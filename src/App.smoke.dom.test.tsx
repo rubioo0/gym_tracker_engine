@@ -55,8 +55,6 @@ const SEEDED_STATE_WITH_ACTIVE_GOAL: PersistedState = {
   ],
   specializationBlocks: [{ goalId: 'g1', focusMuscle: 'biceps', startedAt: '2026-08-01T00:00:00.000Z', endedAt: null }],
   workoutLogs: [],
-  weighIns: [],
-  circumferenceMeasurements: [],
   confirmedSessionInputs: null,
 }
 
@@ -154,8 +152,6 @@ describe('App smoke test', () => {
         { goalId: 'old-goal', focusMuscle: 'chest', startedAt: '2026-07-01T00:00:00.000Z', endedAt: '2026-07-15T00:00:00.000Z' },
       ],
       workoutLogs: [],
-      weighIns: [],
-      circumferenceMeasurements: [],
       confirmedSessionInputs: null,
     }
     renderApp(seedState)
@@ -171,6 +167,47 @@ describe('App smoke test', () => {
     renderApp()
     fireEvent.click(screen.getByRole('button', { name: 'Дані' }))
     expect(screen.getByText('Import / Data Management')).toBeTruthy()
+  })
+
+  it('"Дані" JSON import (textarea + Import JSON From Box) actually replaces old-tree state -- previously untested parsing path', async () => {
+    renderApp()
+    fireEvent.click(screen.getByRole('button', { name: 'Дані' }))
+    await screen.findByText('Import / Data Management')
+
+    const payload = {
+      backupVersion: 2,
+      exportedAt: '2026-08-01T00:00:00.000Z',
+      storageVersion: 1,
+      state: {
+        programTemplates: [],
+        focusRuns: [],
+        workoutLogs: [
+          {
+            id: 'log-1',
+            runId: 'run-1',
+            templateId: 'template-1',
+            sessionId: 'session-1',
+            sessionName: 'Upper A',
+            track: 'upper',
+            completedAt: '2026-08-01T00:00:00.000Z',
+            successful: true,
+            exerciseLogs: [],
+            optionalActivities: [],
+            sessionNote: 'Round-trip test',
+          },
+        ],
+        lastCompletedTrack: null,
+        selectedRunId: null,
+        showProgressionInsights: false,
+      },
+    }
+
+    const textarea = screen.getByLabelText('State JSON (legacy/manual import)')
+    fireEvent.change(textarea, { target: { value: JSON.stringify(payload) } })
+    fireEvent.click(screen.getByRole('button', { name: 'Import JSON From Box' }))
+
+    expect(await screen.findByText('State imported successfully.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Export Logs to Excel (1)' })).toBeTruthy()
   })
 
   it(

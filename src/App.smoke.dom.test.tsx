@@ -373,6 +373,13 @@ it('"Фото" (Photos) tab renders without throwing', async () => {
     expect(await screen.findByText('Фото прогресу')).toBeTruthy()
   })
 
+  it('AI Assistant panel opens without throwing and prompts for an API key when none is configured', () => {
+    renderApp()
+    fireEvent.click(screen.getByRole('button', { name: 'Відкрити AI тренера' }))
+    expect(screen.getByRole('dialog', { name: 'AI Тренер' })).toBeTruthy()
+    expect(screen.getByText('Налаштування Gemini AI')).toBeTruthy()
+  })
+
   it(
     'exercise cards on План сесії show reps/weight and recent history, not just a bare set count -- ' +
       'UI-parity gap reported: "old app has on card sets, reps, weight, last three progression insides. in new app nothing"',

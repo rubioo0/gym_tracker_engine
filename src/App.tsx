@@ -388,7 +388,7 @@ function App() {
       {activeTab === 'engineSetup' && <SetupTab oldWorkoutLogs={state.workoutLogs} />}
     </main>
 
-    <AIAssistant appState={state} onDispatch={dispatch} />
+    <AIAssistant engineState={engineState} />
     </>
   )
 }

@@ -310,4 +310,41 @@ describe('App smoke test', () => {
     fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
     expect(await screen.findByRole('heading', { name: "Before we assemble today's session" })).toBeTruthy()
   })
+
+  it(
+    '"Reset All Data" (Дані tab) actually erases the engine\'s data too, not just the old app\'s -- ' +
+      'the exact regression reported: "I wanted to erase all data but noticed it does not work"',
+    async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
+
+      // Confirm the engine data is really there before resetting.
+      fireEvent.click(screen.getByRole('button', { name: 'Головна' }))
+      expect(await screen.findByText('Barbell Curl')).toBeTruthy()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Дані' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Reset All Data' }))
+
+      fireEvent.click(screen.getByRole('button', { name: 'Головна' }))
+      // Reset clears profile too, so Home falls back to its earliest guard
+      // ("set up your profile") rather than the "no active goal" message --
+      // either way, proof the seeded goal/profile/logs are all really gone.
+      expect(await screen.findByText('Set up your profile first, on the Автопрофіль tab.')).toBeTruthy()
+      expect(screen.getByText('No logged sessions yet.')).toBeTruthy()
+    },
+  )
+
+  it('"Програми" (Programs) tab renders without throwing, and the orphaned "start run" actions are gone', async () => {
+    renderApp()
+    fireEvent.click(screen.getByRole('button', { name: 'Програми' }))
+    expect(await screen.findByText('Шаблони програм')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Розпочати тренування' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'View Plan' })).toBeNull()
+  })
+
+  it('"Фото" (Photos) tab renders without throwing', async () => {
+    renderApp()
+    fireEvent.click(screen.getByRole('button', { name: 'Фото' }))
+    expect(await screen.findByText('Фото прогресу')).toBeTruthy()
+  })
 })

@@ -17,7 +17,7 @@ import { exportProgramTemplateToCsv } from './data/csvExport'
 import { extractCsvImportMetadata } from './data/csvImport'
 import { exportWorkoutLogsToExcel, buildExcelLogFileName } from './data/excelLogExport'
 import { importWorkoutLogsFromExcel } from './data/excelLogImport'
-import { getRunnableRunForTemplate, getTemplateById } from './domain/logic'
+import { getTemplateById } from './domain/logic'
 import { appReducer } from './domain/reducer'
 import { StatsTab as EngineStatsTab } from './components/engine/StatsTab'
 import { PlanEditorModal } from './components/PlanEditorModal'
@@ -39,6 +39,7 @@ import { HistoryTab } from './components/engine/HistoryTab'
 import { CalendarTab } from './components/engine/CalendarTab'
 import { useEngineState } from './components/engine/useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock } from './application/activeGoal'
+import { INITIAL_STATE as ENGINE_INITIAL_STATE } from './application/state'
 import './App.css'
 
 type AppTab =
@@ -78,7 +79,7 @@ function rewriteCsvSourceFileName(csvText: string, sourceFileName: string): stri
 
 function App() {
   const [state, dispatch] = useReducer(appReducer, undefined, loadAppState)
-  const { state: engineState } = useEngineState()
+  const { state: engineState, dispatch: engineDispatch } = useEngineState()
   const engineActive = useMemo(() => getActiveGoalAndBlock(engineState), [engineState])
   const engineSessionsInBlock = useMemo(
     () => (engineActive ? countSessionsInBlock(engineState.workoutLogs, engineActive.block) : 0),
@@ -161,38 +162,9 @@ function App() {
     setActiveTab(tab)
   }
 
-  function handleOpenTemplatePlan(templateId: string): void {
-    const runnableRun = getRunnableRunForTemplate(state.focusRuns, templateId)
-    if (runnableRun) {
-      dispatch({ type: 'switchRun', runId: runnableRun.id })
-      setActiveTab('session')
-      return
-    }
-
-    const template = getTemplateById(state.programTemplates, templateId)
-    if (!template) {
-      setDataMessage('Template not found.')
-      return
-    }
-
-    const approved = window.confirm(
-      `No active run exists for "${template.name}". Start one and open Session Plan?`,
-    )
-    if (!approved) {
-      return
-    }
-
-    dispatch({
-      type: 'startRun',
-      templateId: template.id,
-      now: new Date().toISOString(),
-    })
-    setActiveTab('session')
-  }
-
   function handleResetAllData(): void {
     const approved = window.confirm(
-      'This will remove all runs and logs and load seeded templates. Continue?',
+      'This will remove all runs and logs and load seeded templates, AND erase your autonomous-engine profile, goals, and training history. Continue?',
     )
     if (!approved) {
       return
@@ -203,7 +175,8 @@ function App() {
       type: 'clearAllData',
       templates: seededProgramTemplates,
     })
-    setDataMessage('State reset to seeded templates.')
+    engineDispatch({ type: 'REPLACE_STATE', state: ENGINE_INITIAL_STATE })
+    setDataMessage('State reset to seeded templates. Autonomous-engine data erased too.')
   }
 
   function handleDeleteTemplate(templateId: string, templateName: string): void {
@@ -693,24 +666,6 @@ function App() {
                             </div>
                           </div>
                           <div className="action-row">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                dispatch({
-                                  type: 'startRun',
-                                  templateId: template.id,
-                                  now: new Date().toISOString(),
-                                })
-                              }
-                            >
-                              Розпочати тренування
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenTemplatePlan(template.id)}
-                            >
-                              View Plan
-                            </button>
                             <button
                               type="button"
                               onClick={() => setEditingTemplateId(template.id)}

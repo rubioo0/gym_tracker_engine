@@ -17,6 +17,7 @@ import { buildFocusHistorySeed } from '../../application/focusHistory'
 import { pickNextFocus } from '../../domain/specialization/specialization'
 import type { WorkoutLog as OldAppWorkoutLog } from '../../domain/types'
 import { ExerciseVisual } from './ExerciseVisual'
+import { NumberDraftInput } from './NumberDraftInput'
 import './EngineTabs.css'
 
 function defaultProfile(): UserProfile {
@@ -99,11 +100,12 @@ export function SetupTab({ oldWorkoutLogs }: { oldWorkoutLogs: readonly OldAppWo
         <div className="log-input-grid">
           <label className="stacked-field">
             Sessions per week
-            <input
-              type="number"
+            <NumberDraftInput
               min={1}
               value={profileDraft.sessionsPerWeek}
-              onChange={(e) => setProfileDraft({ ...profileDraft, sessionsPerWeek: Number(e.target.value) })}
+              onCommit={(n) => {
+                if (n !== undefined) setProfileDraft({ ...profileDraft, sessionsPerWeek: n })
+              }}
             />
           </label>
           <label className="stacked-field">
@@ -119,22 +121,18 @@ export function SetupTab({ oldWorkoutLogs }: { oldWorkoutLogs: readonly OldAppWo
           </label>
           <label className="stacked-field">
             Age (years, optional)
-            <input
-              type="number"
-              value={profileDraft.ageYears ?? ''}
-              onChange={(e) =>
-                setProfileDraft({ ...profileDraft, ageYears: e.target.value ? Number(e.target.value) : undefined })
-              }
+            <NumberDraftInput
+              optional
+              value={profileDraft.ageYears}
+              onCommit={(n) => setProfileDraft({ ...profileDraft, ageYears: n })}
             />
           </label>
           <label className="stacked-field">
             Bodyweight (kg, optional)
-            <input
-              type="number"
-              value={profileDraft.bodyweightKg ?? ''}
-              onChange={(e) =>
-                setProfileDraft({ ...profileDraft, bodyweightKg: e.target.value ? Number(e.target.value) : undefined })
-              }
+            <NumberDraftInput
+              optional
+              value={profileDraft.bodyweightKg}
+              onCommit={(n) => setProfileDraft({ ...profileDraft, bodyweightKg: n })}
             />
           </label>
         </div>
@@ -362,24 +360,31 @@ function GoalForm({
       <div className="log-input-grid">
         <label className="stacked-field">
           Starting weight (kg) — {suggestedStartingWeightKg !== null ? 'suggested from your logged history, adjustable' : 'no old-app history for this exercise, enter manually'}
-          <input
-            type="number"
+          <NumberDraftInput
             value={startingWeightKg}
-            onChange={(e) => setStartingWeightOverrideKg(Number(e.target.value))}
+            onCommit={(n) => {
+              if (n !== undefined) setStartingWeightOverrideKg(n)
+            }}
           />
         </label>
         <label className="stacked-field">
           Duration (weeks) — suggested from experience level, adjustable
-          <input
-            type="number"
+          <NumberDraftInput
             min={1}
             value={durationWeeks}
-            onChange={(e) => setDurationOverrideWeeks(Number(e.target.value))}
+            onCommit={(n) => {
+              if (n !== undefined) setDurationOverrideWeeks(n)
+            }}
           />
         </label>
         <label className="stacked-field">
           Target weight (kg) — suggested, adjustable
-          <input type="number" value={targetWeightKg} onChange={(e) => setTargetOverrideKg(Number(e.target.value))} />
+          <NumberDraftInput
+            value={targetWeightKg}
+            onCommit={(n) => {
+              if (n !== undefined) setTargetOverrideKg(n)
+            }}
+          />
         </label>
         <label className="stacked-field">
           Deadline — suggested, adjustable

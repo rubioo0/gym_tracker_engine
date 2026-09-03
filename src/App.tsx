@@ -11,6 +11,7 @@ import {
 import { seededProgramTemplates } from './data/seed'
 import { exportWorkoutLogsToExcel, buildExcelLogFileName } from './data/excelLogExport'
 import { importWorkoutLogsFromExcel } from './data/excelLogImport'
+import { exportEngineWorkoutLogsToExcel, buildEngineExcelLogFileName } from './data/engineExcelLogExport'
 import { appReducer } from './domain/reducer'
 import { StatsTab as EngineStatsTab } from './components/engine/StatsTab'
 import { AIAssistant } from './components/AIAssistant'
@@ -25,7 +26,7 @@ import { HistoryTab } from './components/engine/HistoryTab'
 import { CalendarTab } from './components/engine/CalendarTab'
 import { useEngineState } from './components/engine/useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock } from './application/activeGoal'
-import { INITIAL_STATE as ENGINE_INITIAL_STATE } from './application/state'
+import { INITIAL_STATE as ENGINE_INITIAL_STATE, isPersistedState } from './application/state'
 import './App.css'
 
 type AppTab =
@@ -163,10 +164,17 @@ function App() {
     }
   }
 
-  function handleExportState(): void {
-    const text = exportAppStateJson(state)
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const fileName = `training-os-backup-${timestamp}.json`
+  // Combines both state trees into one downloadable file -- previously this
+  // exported only the old tree, so a user whose real training data lives
+  // entirely in the engine tree (every tab except Програми/Дані) got a
+  // "backup" with empty workoutLogs/goals despite the button's name
+  // ("неможливо експортувати логи зі сторінки даних" -- confirmed live by
+  // an actual exported file during real use). `engineState` rides alongside
+  // the existing `state` key so an old backup file still imports the same
+  // way it always did.
+  function downloadCombinedBackup(oldTreeJson: string, fileName: string): void {
+    const combined = { ...JSON.parse(oldTreeJson), engineState }
+    const text = JSON.stringify(combined, null, 2)
     const backupBlob = new Blob([text], { type: 'application/json;charset=utf-8' })
     const backupUrl = URL.createObjectURL(backupBlob)
     const link = document.createElement('a')
@@ -174,25 +182,63 @@ function App() {
     link.download = fileName
     link.click()
     window.setTimeout(() => URL.revokeObjectURL(backupUrl), 0)
+  }
 
-    setDataMessage(`Backup downloaded: ${fileName}`)
+  function handleExportState(): void {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const fileName = `training-os-backup-${timestamp}.json`
+    downloadCombinedBackup(exportAppStateJson(state), fileName)
+    setDataMessage(`Backup downloaded: ${fileName} (includes autonomous-engine data)`)
   }
 
   function handleExportCleanState(): void {
-    const text = exportCleanAppStateJson(state)
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const fileName = `training-os-backup-clean-${timestamp}.json`
-    const backupBlob = new Blob([text], { type: 'application/json;charset=utf-8' })
-    const backupUrl = URL.createObjectURL(backupBlob)
-    const link = document.createElement('a')
-    link.href = backupUrl
-    link.download = fileName
-    link.click()
-    window.setTimeout(() => URL.revokeObjectURL(backupUrl), 0)
-
+    downloadCombinedBackup(exportCleanAppStateJson(state), fileName)
     setDataMessage(
-      `Clean backup downloaded: ${fileName} (archived/completed runs excluded, active/paused runs only)`,
+      `Clean backup downloaded: ${fileName} (archived/completed runs excluded, active/paused runs only; includes autonomous-engine data)`,
     )
+  }
+
+  function handleExportEngineLogsExcel(): void {
+    if (engineState.workoutLogs.length === 0) {
+      setDataMessage('No engine logs to export.')
+      return
+    }
+
+    try {
+      const buffer = exportEngineWorkoutLogsToExcel(engineState.workoutLogs)
+      const fileName = buildEngineExcelLogFileName()
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 0)
+
+      setDataMessage(`Exported ${engineState.workoutLogs.length} engine workout log(s) to ${fileName}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown export error.'
+      setDataMessage(`Engine Excel export failed: ${message}`)
+    }
+  }
+
+  /** Restores the engine tree from an `engineState` key alongside the old-tree payload, if present and valid -- older backup files (from before this existed) simply don't have the key, and are left alone. */
+  function restoreEngineStateIfPresent(rawJson: string): boolean {
+    try {
+      const parsed = JSON.parse(rawJson) as { engineState?: unknown }
+      if (isPersistedState(parsed.engineState)) {
+        engineDispatch({ type: 'REPLACE_STATE', state: parsed.engineState })
+        return true
+      }
+    } catch {
+      // Old-tree import already succeeded by the time this runs; a parse
+      // failure here just means no engine data to restore.
+    }
+    return false
   }
 
   function handleImportState(): void {
@@ -203,7 +249,8 @@ function App() {
     }
 
     dispatch({ type: 'hydrate', payload: imported })
-    setDataMessage('State imported successfully.')
+    const restoredEngine = restoreEngineStateIfPresent(importText)
+    setDataMessage(`State imported successfully${restoredEngine ? ' (including autonomous-engine data)' : ''}.`)
   }
 
   async function handleImportStateFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -222,8 +269,9 @@ function App() {
       }
 
       dispatch({ type: 'hydrate', payload: imported })
+      const restoredEngine = restoreEngineStateIfPresent(text)
       setImportText(text)
-      setDataMessage(`Imported backup file: ${file.name}`)
+      setDataMessage(`Imported backup file: ${file.name}${restoredEngine ? ' (including autonomous-engine data)' : ''}`)
     } catch {
       setDataMessage('Failed to read backup file.')
     }
@@ -277,7 +325,7 @@ function App() {
 
       {activeTab === 'session' && <TodayTab onGoToFinish={() => setActiveTab('log')} />}
 
-      {activeTab === 'log' && <FinishSessionTab />}
+      {activeTab === 'log' && <FinishSessionTab onFinished={() => setActiveTab('home')} />}
 
       {activeTab === 'history' && <HistoryTab />}
 
@@ -305,8 +353,11 @@ function App() {
             <div className="template-group">
               <h3>State Backup</h3>
               <p className="muted">
-                Use the clean backup when cache-busting or updating your app (excludes
-                archived/completed runs). Use full backup to preserve all historical data.
+                Covers both your real training data (goals, workout history, profile — the
+                data every tab except Програми/Дані uses) and the legacy Програми/Дані data,
+                in one file. Use the clean backup when cache-busting or updating your app
+                (excludes archived/completed runs). Use full backup to preserve all
+                historical data.
               </p>
               <div className="action-row">
                 <button type="button" onClick={handleExportCleanState}>
@@ -331,22 +382,32 @@ function App() {
             <div className="template-group">
               <h3>Log History Export / Import</h3>
               <p className="muted">
-                Export your workout log history to an Excel file. Edit it externally
-                (adjust weights, dates, etc.), then re-import. Importing replaces all
-                current logs and recalculates run counters.
+                "Export Logs to Excel" below is your real, current training history (the
+                engine data every tab uses). Edit it externally (adjust weights, dates, etc.)
+                if needed. The legacy import/export pair underneath is for the old,
+                no-longer-actively-used Програми/Дані log format.
               </p>
+              <div className="action-row">
+                <button
+                  type="button"
+                  onClick={handleExportEngineLogsExcel}
+                  disabled={engineState.workoutLogs.length === 0}
+                >
+                  Export Logs to Excel ({engineState.workoutLogs.length})
+                </button>
+              </div>
               <div className="action-row">
                 <button
                   type="button"
                   onClick={handleExportLogsExcel}
                   disabled={state.workoutLogs.length === 0}
                 >
-                  Export Logs to Excel ({state.workoutLogs.length})
+                  Export Legacy Logs to Excel ({state.workoutLogs.length})
                 </button>
               </div>
               <div className="action-row">
                 <label className="stacked-field inline-file-field">
-                  Import Logs from Excel
+                  Import Legacy Logs from Excel
                   <input
                     type="file"
                     accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

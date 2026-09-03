@@ -207,8 +207,46 @@ describe('App smoke test', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Import JSON From Box' }))
 
     expect(await screen.findByText('State imported successfully.')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Export Logs to Excel (1)' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Export Legacy Logs to Excel (1)' })).toBeTruthy()
   })
+
+  it(
+    '"Дані" JSON import also restores real engine-tree data from an `engineState` key -- ' +
+      'the exact regression reported: "неможливо експортувати логи зі сторінки даних" ' +
+      '(a Data-tab backup previously only ever contained empty old-tree data)',
+    async () => {
+      renderApp()
+      fireEvent.click(screen.getByRole('button', { name: 'Дані' }))
+      await screen.findByText('Import / Data Management')
+
+      const payload = {
+        backupVersion: 3,
+        exportedAt: '2026-09-03T00:00:00.000Z',
+        storageVersion: 1,
+        state: {
+          programTemplates: [],
+          focusRuns: [],
+          workoutLogs: [],
+          lastCompletedTrack: null,
+          selectedRunId: null,
+          showProgressionInsights: false,
+        },
+        engineState: SEEDED_STATE_WITH_ACTIVE_GOAL,
+      }
+
+      const textarea = screen.getByLabelText('State JSON (legacy/manual import)')
+      fireEvent.change(textarea, { target: { value: JSON.stringify(payload) } })
+      fireEvent.click(screen.getByRole('button', { name: 'Import JSON From Box' }))
+
+      expect(await screen.findByText('State imported successfully (including autonomous-engine data).')).toBeTruthy()
+
+      // The engine tree (goal/block from SEEDED_STATE_WITH_ACTIVE_GOAL) is
+      // really there now, not just the old tree -- proven via Головна,
+      // which only ever reads engine state.
+      fireEvent.click(screen.getByRole('button', { name: 'Головна' }))
+      expect(await screen.findByText('Barbell Curl')).toBeTruthy()
+    },
+  )
 
   it(
     'full "План сесії" -> "Завершити" flow: assembling a session, navigating to finish it, ' +
@@ -218,7 +256,13 @@ describe('App smoke test', () => {
       renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
 
       fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
-      fireEvent.click(await screen.findByRole('button', { name: 'Assemble my session' }))
+      // Generous budget: with every muscle now eligible for maintenance work
+      // (landmarks.ts's 2026-09 mv fix), the default 45-minute draft can
+      // legitimately crowd out an isolation goal exercise like Barbell Curl
+      // in favor of higher-priority compounds -- this test is about the
+      // finish flow, not time-crunch cutting.
+      fireEvent.change(await screen.findByLabelText('Minutes available today'), { target: { value: '300' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Assemble my session' }))
 
       const goToFinishButton = await screen.findByRole('button', { name: 'Перейти до Завершити' })
       expect(await screen.findByText('Barbell Curl')).toBeTruthy()
@@ -231,11 +275,13 @@ describe('App smoke test', () => {
 
       fireEvent.click(screen.getByRole('button', { name: 'Завершити тренування' }))
 
-      // The workout was actually persisted (not just a local-only success message):
-      // a fresh form appears immediately, ready to log another one -- because there
-      // is no "already logged" lock, exactly like the old app's Log tab.
-      expect(await screen.findByText('Workout saved. Logging a fresh one below.')).toBeTruthy()
-      expect(screen.getByText('Barbell Curl')).toBeTruthy()
+      // Matches the old app's post-log navigation (regression from real use:
+      // "поправити, завершити тренування не навігує після логування так як
+      // стара апка") -- submitting takes the user straight to Головна, and
+      // the workout was actually persisted, not just a local-only success
+      // message: the "last completed session" card proves it.
+      expect(await screen.findByRole('heading', { name: 'Остання завершена сесія' })).toBeTruthy()
+      expect(screen.getAllByText(/Barbell Curl/).length).toBeGreaterThan(0)
     },
   )
 
@@ -263,6 +309,8 @@ describe('App smoke test', () => {
 
       fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
       expect(await screen.findByRole('heading', { name: "Before we assemble today's session" })).toBeTruthy()
+      // Generous budget -- see the comment on the flow test above for why.
+      fireEvent.change(screen.getByLabelText('Minutes available today'), { target: { value: '300' } })
       fireEvent.click(screen.getByRole('button', { name: 'Assemble my session' }))
       expect(await screen.findByText('Barbell Curl')).toBeTruthy()
 
@@ -413,7 +461,9 @@ describe('App smoke test', () => {
 
     expect(await screen.findByText(/Using today's plan from План сесії/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Завершити тренування' }))
-    expect(await screen.findByText('Workout saved. Logging a fresh one below.')).toBeTruthy()
+    // Submitting navigates to Головна now (matches the old app) -- proven by
+    // the last-completed-session card rendering there.
+    expect(await screen.findByRole('heading', { name: 'Остання завершена сесія' })).toBeTruthy()
 
     // confirmedSessionInputs was cleared by LOG_WORKOUT -- back on План сесії,
     // it asks fresh for the next (now-unlogged) session rather than reusing
@@ -476,7 +526,13 @@ it('"Фото" (Photos) tab renders without throwing', async () => {
       renderApp(seedWithLog)
 
       fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
-      fireEvent.click(await screen.findByRole('button', { name: 'Assemble my session' }))
+      // A generous time budget: with every muscle now eligible for
+      // maintenance work (landmarks.ts's 2026-09 mv fix), the default
+      // 45-minute draft can legitimately crowd out an isolation goal
+      // exercise like Barbell Curl in favor of higher-priority compounds --
+      // this test is about the card's UI content, not time-crunch cutting.
+      fireEvent.change(await screen.findByLabelText('Minutes available today'), { target: { value: '300' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Assemble my session' }))
 
       expect(await screen.findAllByText('Reps')).not.toHaveLength(0)
       expect(screen.getAllByText('Weight').length).toBeGreaterThan(0)

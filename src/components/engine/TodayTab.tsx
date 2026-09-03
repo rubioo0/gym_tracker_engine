@@ -7,6 +7,7 @@ import { mostRecentTopSet, prescribeSession, goalHeldStreak, shouldDeloadGoalExe
 import { recentExerciseHistory } from '../../application/exerciseHistory'
 import { isPerHandEquipment } from '../../domain/exerciseLibrary/exerciseLibrary'
 import { ExerciseDetailModal } from './ExerciseDetailModal'
+import { NumberDraftInput } from './NumberDraftInput'
 import './EngineTabs.css'
 
 const RENEWAL_MESSAGES: Record<GoalRenewalReason, string> = {
@@ -89,11 +90,12 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
           <h2>Before we assemble today's session</h2>
           <label className="stacked-field inline-field">
             Minutes available today
-            <input
-              type="number"
+            <NumberDraftInput
               min={1}
               value={draftMinutes}
-              onChange={(e) => setDraftMinutes(Number(e.target.value))}
+              onCommit={(n) => {
+                if (n !== undefined) setDraftMinutes(n)
+              }}
             />
           </label>
           <label className="log-checkbox-field inline-field">
@@ -167,6 +169,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
           <ol className="exercise-card-list" aria-label="Today's exercises">
             {slots.map((slot, i) => {
               const working = prescriptions[i]?.sets.find((s) => s.role === 'working')
+              const rampCount = prescriptions[i]?.sets.filter((s) => s.role === 'ramp').length ?? 0
               const history = recentExerciseHistory(state.workoutLogs, slot.exercise.id, 3)
               return (
                 <li key={i} className="exercise-card-item">
@@ -185,6 +188,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
                       <span className="exercise-chip">
                         <strong>Sets</strong>
                         {slot.sets}
+                        {rampCount > 0 ? ` (+${rampCount} warm-up)` : ''}
                       </span>
                       {working ? (
                         <>

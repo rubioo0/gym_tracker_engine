@@ -67,7 +67,13 @@ describe('buildCalendarEntryDetails', () => {
 
   it('builds a preview for a projected entry via assembleTodaysSession/prescribeSession, including the goal exercise', () => {
     const entries: CalendarEntry[] = [{ date: '2026-08-10', isProjected: true }]
-    const result = buildCalendarEntryDetails(entries, baseState(), { goal: GOAL, block: BLOCK })
+    // A generous time budget: with every muscle now eligible for maintenance
+    // work (landmarks.ts's 2026-09 mv fix), a tight budget can legitimately
+    // cut an isolation goal exercise in favor of higher-priority compounds
+    // per the locked NSCA-tiering order (sessionAssembly.ts) -- this test is
+    // about the preview mechanism itself, not time-crunch cutting.
+    const state = { ...baseState(), confirmedSessionInputs: { availableMinutes: 300, noGymToday: false } }
+    const result = buildCalendarEntryDetails(entries, state, { goal: GOAL, block: BLOCK })
     expect(result).toHaveLength(1)
     expect(result[0].exercises.length).toBeGreaterThan(0)
     expect(result[0].exercises.some((ex) => ex.exerciseId === 'Barbell_Curl')).toBe(true)

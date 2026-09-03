@@ -6,6 +6,7 @@ import { assembleTodaysSession } from '../../application/sessionOrchestration'
 import { prescribeSession, mostRecentTopSet, shouldDeloadGoalExercise } from '../../application/sessionPrescription'
 import { recentExerciseHistory } from '../../application/exerciseHistory'
 import { getExerciseById, isPerHandEquipment } from '../../domain/exerciseLibrary/exerciseLibrary'
+import { NumberDraftInput } from './NumberDraftInput'
 import type { ExerciseDifficulty, SetEntry, WorkoutLog } from '../../domain/workoutLog/types'
 
 const RENEWAL_MESSAGES: Record<GoalRenewalReason, string> = {
@@ -40,7 +41,7 @@ interface EditableExerciseLog {
  * drops the unsaved local state, and reopening gives a fresh form seeded
  * from the current prescription again.
  */
-export function FinishSessionTab() {
+export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
   const { state, dispatch, loaded } = useEngineState()
   const [noGymToday, setNoGymToday] = useState(false)
   const [successful, setSuccessful] = useState(true)
@@ -146,6 +147,10 @@ export function FinishSessionTab() {
     setSuccessful(true)
     setNote('')
     setJustFinished(true)
+    // Matches the old app's handleSubmitLog, which navigated to Home right
+    // after logging — onFinished is optional so the component still works
+    // standalone (e.g. in tests) without a navigation callback wired up.
+    onFinished?.()
   }
 
   return (
@@ -181,9 +186,16 @@ export function FinishSessionTab() {
         {currentEdits.map((log) => {
           const exercise = getExerciseById(log.exerciseId)
           const history = recentExerciseHistory(state.workoutLogs, log.exerciseId, 3)
+          const rampCount = log.sets.filter((s) => s.role === 'ramp').length
+          const workingCount = log.sets.filter((s) => s.role === 'working').length
           return (
             <article key={log.exerciseId} className="log-exercise-card">
               <h3>{exercise?.nameEn ?? log.exerciseId}</h3>
+              {!log.skipped && rampCount > 0 ? (
+                <p className="muted">
+                  {workingCount} робочих підходи (+{rampCount} розминкових = {log.sets.length} рядків нижче)
+                </p>
+              ) : null}
               {history.length > 0 ? (
                 <div className="exercise-card-history">
                   {history.map((entry) => (
@@ -215,23 +227,23 @@ export function FinishSessionTab() {
                           const unit = exercise && isPerHandEquipment(exercise) ? 'kg per hand' : 'kg'
                           return set.role === 'ramp' ? `Ramp set ${i + 1} — weight (${unit})` : `Set ${i + 1} — weight (${unit})`
                         })()}
-                        <input
-                          type="number"
+                        <NumberDraftInput
                           value={set.weightKg}
-                          onChange={(e) => {
+                          onCommit={(n) => {
+                            if (n === undefined) return
                             setJustFinished(false)
-                            updateSet(log.exerciseId, i, { weightKg: Number(e.target.value) })
+                            updateSet(log.exerciseId, i, { weightKg: n })
                           }}
                         />
                       </label>
                       <label className="stacked-field">
                         Reps
-                        <input
-                          type="number"
+                        <NumberDraftInput
                           value={set.reps}
-                          onChange={(e) => {
+                          onCommit={(n) => {
+                            if (n === undefined) return
                             setJustFinished(false)
-                            updateSet(log.exerciseId, i, { reps: Number(e.target.value) })
+                            updateSet(log.exerciseId, i, { reps: n })
                           }}
                         />
                       </label>

@@ -11,17 +11,22 @@ import {
 } from '../../domain/goals/goalProjection'
 import type { ExperienceLevel } from '../../domain/profile/types'
 import { getExerciseById } from '../../domain/exerciseLibrary/exerciseLibrary'
+import { getMuscleGroup } from '../../domain/muscles/muscleTaxonomy'
 import { parseLocalDateKey } from '../../domain/dateUtils'
 import { exportEngineCalendarToExcel, buildEngineCalendarExcelFileName } from '../../data/engineExcelCalendarExport'
 import './CalendarTab.css'
 
 function formatDateKey(dateKey: string): string {
-  return parseLocalDateKey(dateKey).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' })
+  return parseLocalDateKey(dateKey).toLocaleDateString('uk-UA', { year: 'numeric', month: 'short', day: '2-digit' })
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('uk-UA', { year: 'numeric', month: 'short', day: '2-digit' })
 }
 
 function formatWeight(weightKg: number | undefined, perHand: boolean): string {
   if (typeof weightKg !== 'number') return '-'
-  return `${weightKg}kg${perHand ? '/hand' : ''}`
+  return `${weightKg}кг${perHand ? '/рука' : ''}`
 }
 
 /**
@@ -45,7 +50,7 @@ export function CalendarTab() {
     return (
       <section className="panel-grid">
         <article className="card">
-          <p className="muted">Loading…</p>
+          <p className="muted">Завантаження…</p>
         </article>
       </section>
     )
@@ -56,7 +61,7 @@ export function CalendarTab() {
     return (
       <section className="panel-grid">
         <article className="card">
-          <p>No active goal yet. Create one on the Автопрофіль tab to start training.</p>
+          <p>Ще немає активної цілі. Створіть її на вкладці Автопрофіль, щоб почати тренування.</p>
         </article>
       </section>
     )
@@ -97,53 +102,51 @@ export function CalendarTab() {
       link.download = fileName
       link.click()
       window.setTimeout(() => URL.revokeObjectURL(url), 0)
-      setExportMessage(`Exported calendar to ${fileName}`)
+      setExportMessage(`Календар експортовано у ${fileName}`)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown export error.'
-      setExportMessage(`Excel export failed: ${message}`)
+      const message = error instanceof Error ? error.message : 'Невідома помилка.'
+      setExportMessage(`Помилка експорту в Excel: ${message}`)
     }
   }
 
   return (
     <section className="panel-grid">
       <article className="card card-wide">
-        <h2>Calendar — focus: {block.focusMuscle}</h2>
-        <p className="muted">Goal exercise: {exerciseName}</p>
+        <h2>Календар — фокус: {getMuscleGroup(block.focusMuscle).labelUk}</h2>
+        <p className="muted">Цільова вправа: {exerciseName}</p>
 
         <div className="action-row">
           <button type="button" onClick={handleExportExcel} disabled={entries.length === 0}>
-            Export Calendar to Excel
+            Експортувати календар в Excel
           </button>
         </div>
         {exportMessage ? <p className="note">{exportMessage}</p> : null}
 
         <div className="calendar-header">
           <div className="calendar-header-stat">
-            <strong>Started</strong>
-            {new Date(block.startedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' })}
+            <strong>Початок</strong>
+            {formatDate(block.startedAt)}
           </div>
           <div className="calendar-header-stat">
-            <strong>Projected goal completion</strong>
-            {projectedEnd === null
-              ? 'unavailable'
-              : `${projectedEnd.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' })}${onTrack ? '' : ' (behind deadline)'}`}
+            <strong>Прогнозоване завершення цілі</strong>
+            {projectedEnd === null ? 'недоступно' : `${formatDate(projectedEnd.toISOString())}${onTrack ? '' : ' (пізніше дедлайну)'}`}
           </div>
           <div className="calendar-header-stat">
-            <strong>Avg. days between sessions</strong>
+            <strong>Сер. днів між сесіями</strong>
             {avgDays.toFixed(1)}
           </div>
         </div>
 
         {entries.length === 0 ? (
-          <p>Nothing to show yet.</p>
+          <p>Поки нічого показувати.</p>
         ) : (
           <div className="calendar-sessions">
             {entries.map((entry, index) => (
               <div key={index} className={`calendar-session ${entry.isProjected ? 'projected' : 'completed'}`}>
                 <button type="button" className="session-header" onClick={() => toggle(index)}>
-                  <span className="session-number">Session {index + 1}</span>
+                  <span className="session-number">Сесія {index + 1}</span>
                   <span className="session-name">
-                    {entry.exercises.length} exercise{entry.exercises.length !== 1 ? 's' : ''}
+                    {entry.exercises.length} вправ{entry.exercises.length !== 1 ? '' : 'а'}
                   </span>
                   {entry.isProjected ? (
                     <span className="session-status projected">→ {formatDateKey(entry.date)}</span>
@@ -155,7 +158,7 @@ export function CalendarTab() {
                 {expanded.has(index) && (
                   <div className="session-exercises">
                     {entry.exercises.length === 0 ? (
-                      <p className="muted">No exercise detail available.</p>
+                      <p className="muted">Деталі вправ недоступні.</p>
                     ) : (
                       entry.exercises.map((exercise) => (
                         <div key={exercise.exerciseId} className="exercise-row">
@@ -169,7 +172,7 @@ export function CalendarTab() {
                                 {formatWeight(exercise.weightKg, exercise.perHand)}
                               </span>
                             </div>
-                            {exercise.skipped ? <div className="exercise-skipped">Skipped</div> : null}
+                            {exercise.skipped ? <div className="exercise-skipped">Пропущено</div> : null}
                           </div>
                         </div>
                       ))

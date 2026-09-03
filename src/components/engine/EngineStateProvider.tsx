@@ -67,12 +67,12 @@ export function EngineStateProvider({
     <EngineStateContext.Provider value={{ state, dispatch, loaded }}>
       {loadError ? (
         <p role="alert" style={BANNER_STYLE}>
-          Couldn't load your saved training data. Reload the page to retry — your data has not been erased.
+          Не вдалося завантажити збережені дані тренувань. Перезавантажте сторінку, щоб спробувати ще раз — ваші дані не стерто.
         </p>
       ) : null}
       {saveError ? (
         <p role="alert" style={BANNER_STYLE}>
-          Couldn't save your last change — it may be lost if you close this tab. Check your device's storage space and try again.
+          Не вдалося зберегти останню зміну — вона може бути втрачена, якщо закрити цю вкладку. Перевірте вільне місце на пристрої та спробуйте ще раз.
         </p>
       ) : null}
       {children}

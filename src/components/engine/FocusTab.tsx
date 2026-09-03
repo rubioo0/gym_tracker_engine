@@ -2,6 +2,7 @@ import { useEngineState } from './useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock, workoutLogsInBlock } from '../../application/activeGoal'
 import { mostRecentTopSet } from '../../application/sessionPrescription'
 import { getExerciseById } from '../../domain/exerciseLibrary/exerciseLibrary'
+import { getMuscleGroup } from '../../domain/muscles/muscleTaxonomy'
 import { projectedCompletionDate, isOnTrack } from '../../domain/goals/goalProjection'
 import { ESTIMATED_WEEKLY_RATE_KG_BY_EXPERIENCE } from '../../domain/goals/goalProjection'
 import type { ExperienceLevel } from '../../domain/profile/types'
@@ -23,7 +24,7 @@ export function FocusTab() {
     return (
       <section className="panel-grid">
         <article className="card">
-          <p className="muted">Loading…</p>
+          <p className="muted">Завантаження…</p>
         </article>
       </section>
     )
@@ -37,21 +38,25 @@ export function FocusTab() {
     .sort((a, b) => (b.endedAt! < a.endedAt! ? -1 : 1))
 
   function endGoal() {
-    if (!window.confirm('End the active goal now? You can set a new one on the Автопрофіль tab afterward.')) return
+    if (!window.confirm('Завершити активну ціль зараз? Потім можна встановити нову на вкладці Автопрофіль.')) return
     dispatch({ type: 'END_GOAL', endedAt: new Date().toISOString() })
   }
 
   return (
     <section className="panel-grid">
       <article className="card card-primary">
-        <h2>Active</h2>
-        {active ? <ActiveBlockCard active={active} onEndGoal={endGoal} /> : <p>No active goal. Set one on the Автопрофіль tab.</p>}
+        <h2>Активна</h2>
+        {active ? (
+          <ActiveBlockCard active={active} onEndGoal={endGoal} />
+        ) : (
+          <p>Немає активної цілі. Встановіть її на вкладці Автопрофіль.</p>
+        )}
       </article>
 
       <article className="card">
-        <h2>History</h2>
+        <h2>Історія</h2>
         {endedBlocks.length === 0 ? (
-          <p className="muted">No ended goals yet.</p>
+          <p className="muted">Ще немає завершених цілей.</p>
         ) : (
           <ul className="list-plain">
             {endedBlocks.map((block) => {
@@ -60,13 +65,14 @@ export function FocusTab() {
               return (
                 <li key={block.goalId} className="item-row item-row-stack">
                   <div>
-                    <strong>{exercise?.nameEn ?? goal?.exerciseId ?? 'Unknown exercise'}</strong>
+                    <strong>{exercise?.nameEn ?? goal?.exerciseId ?? 'Невідома вправа'}</strong>
                     <div className="muted">
-                      Focus: {block.focusMuscle} | {block.startedAt.slice(0, 10)} → {block.endedAt!.slice(0, 10)}
+                      Фокус: {getMuscleGroup(block.focusMuscle).labelUk} | {block.startedAt.slice(0, 10)} →{' '}
+                      {block.endedAt!.slice(0, 10)}
                     </div>
                     {goal ? (
                       <div className="muted">
-                        {goal.startingWeightKg}kg → {goal.targetWeightKg}kg (target)
+                        {goal.startingWeightKg}кг → {goal.targetWeightKg}кг (ціль)
                       </div>
                     ) : null}
                   </div>
@@ -104,24 +110,24 @@ function ActiveBlockCard({
     <>
       <p className="next-session-title">{exercise?.nameEn ?? goal.exerciseId}</p>
       <p>
-        Focus: <strong>{block.focusMuscle}</strong> | Started {block.startedAt.slice(0, 10)}
+        Фокус: <strong>{getMuscleGroup(block.focusMuscle).labelUk}</strong> | Розпочато {block.startedAt.slice(0, 10)}
       </p>
       <p>
-        {goal.startingWeightKg}kg -&gt; {goal.targetWeightKg}kg by {goal.deadline.slice(0, 10)}
+        {goal.startingWeightKg}кг -&gt; {goal.targetWeightKg}кг до {goal.deadline.slice(0, 10)}
       </p>
       <p>
-        Current: <strong>{currentWeightKg}kg</strong> | Sessions logged this block: <strong>{sessionsInBlock}</strong>
+        Поточна: <strong>{currentWeightKg}кг</strong> | Залоговано сесій у цьому блоці: <strong>{sessionsInBlock}</strong>
       </p>
       <p className={onTrack ? 'note' : 'muted'}>
         {projected === null
-          ? 'Projection unavailable (no positive progress rate).'
+          ? 'Прогноз недоступний (немає позитивного темпу прогресу).'
           : onTrack
-            ? `On track — projected completion ${projected.toISOString().slice(0, 10)}.`
-            : `Behind schedule — projected completion ${projected.toISOString().slice(0, 10)}, after the deadline.`}
+            ? `За графіком — прогнозоване завершення ${projected.toISOString().slice(0, 10)}.`
+            : `Відстає від графіку — прогнозоване завершення ${projected.toISOString().slice(0, 10)}, після дедлайну.`}
       </p>
       <div className="action-row">
         <button type="button" onClick={onEndGoal}>
-          End this goal early
+          Завершити ціль достроково
         </button>
       </div>
     </>

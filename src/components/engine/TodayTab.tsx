@@ -6,14 +6,15 @@ import { assembleTodaysSession } from '../../application/sessionOrchestration'
 import { mostRecentTopSet, prescribeSession, goalHeldStreak, shouldDeloadGoalExercise } from '../../application/sessionPrescription'
 import { recentExerciseHistory } from '../../application/exerciseHistory'
 import { isPerHandEquipment } from '../../domain/exerciseLibrary/exerciseLibrary'
+import { getMuscleGroup } from '../../domain/muscles/muscleTaxonomy'
 import { ExerciseDetailModal } from './ExerciseDetailModal'
 import { NumberDraftInput } from './NumberDraftInput'
 import './EngineTabs.css'
 
 const RENEWAL_MESSAGES: Record<GoalRenewalReason, string> = {
-  deadlinePassed: 'Your goal’s deadline has passed.',
-  targetMet: 'You hit your target!',
-  focusMuscleInjured: 'Your focus muscle is marked as injured.',
+  deadlinePassed: 'Дедлайн вашої цілі минув.',
+  targetMet: 'Ви досягли цілі!',
+  focusMuscleInjured: 'Вашу фокус-групу м’язів позначено як травмовану.',
 }
 
 /**
@@ -43,7 +44,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
     return (
       <section className="panel-grid">
         <article className="card">
-          <p className="muted">Loading…</p>
+          <p className="muted">Завантаження…</p>
         </article>
       </section>
     )
@@ -52,7 +53,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
     return (
       <section className="panel-grid">
         <article className="card">
-          <p>Set up your profile first, on the Setup tab.</p>
+          <p>Спершу налаштуйте профіль на вкладці Автопрофіль.</p>
         </article>
       </section>
     )
@@ -63,7 +64,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
     return (
       <section className="panel-grid">
         <article className="card">
-          <p>No active goal yet. Create one on the Setup tab to start training.</p>
+          <p>Ще немає активної цілі. Створіть її на вкладці Автопрофіль, щоб почати тренування.</p>
         </article>
       </section>
     )
@@ -77,7 +78,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
       <section className="panel-grid">
         <article className="card">
           <p className="note">{RENEWAL_MESSAGES[renewalReason]}</p>
-          <p className="muted">Set your next goal on the Setup tab.</p>
+          <p className="muted">Встановіть наступну ціль на вкладці Автопрофіль.</p>
         </article>
       </section>
     )
@@ -87,9 +88,9 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
     return (
       <section className="panel-grid">
         <article className="card">
-          <h2>Before we assemble today's session</h2>
+          <h2>Перш ніж зібрати сьогоднішню сесію</h2>
           <label className="stacked-field inline-field">
-            Minutes available today
+            Хвилин доступно сьогодні
             <NumberDraftInput
               min={1}
               value={draftMinutes}
@@ -99,7 +100,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
             />
           </label>
           <label className="log-checkbox-field inline-field">
-            No gym today
+            Сьогодні без залу
             <input type="checkbox" checked={draftNoGym} onChange={(e) => setDraftNoGym(e.target.checked)} />
           </label>
           <div className="action-row">
@@ -113,7 +114,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
                 setEditingInputs(false)
               }}
             >
-              Assemble my session
+              Зібрати мою сесію
             </button>
           </div>
         </article>
@@ -153,20 +154,20 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
       <article className="card card-wide">
         <div className="action-row">
           <button type="button" onClick={() => setEditingInputs(true)}>
-            Change time / location
+            Змінити час / місце
           </button>
         </div>
-        <h2>Today's session — focus: {active.block.focusMuscle}</h2>
+        <h2>Сьогоднішня сесія — фокус: {getMuscleGroup(active.block.focusMuscle).labelUk}</h2>
         {deloadGoalExercise ? (
           <p className="note">
-            ⚠️ Deload suggested for your goal exercise — overloaded (ACWR) or stalled for 2+ sessions. Progression is
-            paused this session; consider reducing the weight yourself if it still feels heavy.
+            ⚠️ Рекомендовано розвантаження для цільової вправи — перевантаження (ACWR) або застій 2+ сесії. Прогресію
+            призупинено цю сесію; за потреби зменшіть вагу самостійно, якщо вона все ще здається важкою.
           </p>
         ) : null}
         {slots.length === 0 ? (
-          <p>Nothing to show — try a larger time budget.</p>
+          <p>Немає що показати — спробуйте більший бюджет часу.</p>
         ) : (
-          <ol className="exercise-card-list" aria-label="Today's exercises">
+          <ol className="exercise-card-list" aria-label="Сьогоднішні вправи">
             {slots.map((slot, i) => {
               const working = prescriptions[i]?.sets.find((s) => s.role === 'working')
               const rampCount = prescriptions[i]?.sets.filter((s) => s.role === 'ramp').length ?? 0
@@ -181,14 +182,14 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
                   >
                     <div className="exercise-card-header">
                       <span className="exercise-card-order">#{i + 1}</span>
-                      {slot.isGoalPriority ? <span className="exercise-type-badge">Goal</span> : null}
+                      {slot.isGoalPriority ? <span className="exercise-type-badge">Ціль</span> : null}
                     </div>
                     <h3 className="exercise-card-title">{slot.exercise.nameEn}</h3>
                     <div className="exercise-card-metrics">
                       <span className="exercise-chip">
                         <strong>Sets</strong>
                         {slot.sets}
-                        {rampCount > 0 ? ` (+${rampCount} warm-up)` : ''}
+                        {rampCount > 0 ? ` (+${rampCount} розм.)` : ''}
                       </span>
                       {working ? (
                         <>
@@ -204,7 +205,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
                       ) : null}
                       <span className="exercise-chip">
                         <strong>Muscle</strong>
-                        {slot.muscleGroupId}
+                        {getMuscleGroup(slot.muscleGroupId).labelUk}
                       </span>
                     </div>
                     {history.length > 0 ? (

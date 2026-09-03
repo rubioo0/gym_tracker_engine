@@ -3,6 +3,7 @@ import { isPerHandEquipment, type LibraryExercise } from '../../domain/exerciseL
 import { WEIGHT_INCREMENT_KG, TARGET_REPS_BY_EMPHASIS, type PrescribedSet } from '../../application/sessionPrescription'
 import type { ExerciseHistoryEntry } from '../../application/exerciseHistory'
 import type { TrainingEmphasis } from '../../domain/goals/types'
+import { getMuscleGroup } from '../../domain/muscles/muscleTaxonomy'
 import { ExerciseVisual } from './ExerciseVisual'
 
 interface ExerciseDetailModalProps {
@@ -23,7 +24,7 @@ interface ExerciseDetailModalProps {
 }
 
 function formatWeight(weightKg: number, exercise: Pick<LibraryExercise, 'equipment'>): string {
-  return isPerHandEquipment(exercise) ? `${weightKg}kg (per hand)` : `${weightKg}kg`
+  return isPerHandEquipment(exercise) ? `${weightKg}кг (за руку)` : `${weightKg}кг`
 }
 
 /** Same interaction pattern as the old app's SessionExerciseDetailsModal (click a card, see image + instructions), reusing its `.exercise-modal*` classes — rebuilt against the engine's own AssembledExerciseSlot/LibraryExercise shape instead of PlannedExercise. */
@@ -70,13 +71,13 @@ export function ExerciseDetailModal({
       >
         <header className="exercise-modal-top">
           <div>
-            <p className="exercise-modal-order">{isGoalPriority ? 'Goal exercise' : 'Maintenance'}</p>
+            <p className="exercise-modal-order">{isGoalPriority ? 'Цільова вправа' : 'Підтримка'}</p>
             <h3 id={titleId} className="exercise-modal-title">
               {exercise.nameEn}
             </h3>
           </div>
           <button type="button" className="exercise-modal-close" onClick={onClose} ref={closeButtonRef}>
-            Close
+            Закрити
           </button>
         </header>
 
@@ -86,7 +87,7 @@ export function ExerciseDetailModal({
           <div className="exercise-details-stack">
             <div className="exercise-details-grid">
               <div className="exercise-detail-item">
-                <span>Sets</span>
+                <span>Підходи</span>
                 <strong>{sets}</strong>
               </div>
               {(() => {
@@ -94,33 +95,33 @@ export function ExerciseDetailModal({
                 return working ? (
                   <>
                     <div className="exercise-detail-item">
-                      <span>Target reps</span>
+                      <span>Цільові повторення</span>
                       <strong>{working.targetReps}</strong>
                     </div>
                     <div className="exercise-detail-item">
-                      <span>Weight</span>
+                      <span>Вага</span>
                       <strong>{formatWeight(working.weightKg, exercise)}</strong>
                     </div>
                   </>
                 ) : null
               })()}
               <div className="exercise-detail-item">
-                <span>Equipment</span>
+                <span>Обладнання</span>
                 <strong>{exercise.equipment ?? '-'}</strong>
               </div>
               <div className="exercise-detail-item">
-                <span>Type</span>
+                <span>Тип</span>
                 <strong>{exercise.mechanic ?? '-'}</strong>
               </div>
               <div className="exercise-detail-item">
-                <span>Primary</span>
-                <strong>{exercise.primaryMuscles.join(', ') || '-'}</strong>
+                <span>Основні м'язи</span>
+                <strong>{exercise.primaryMuscles.map((m) => getMuscleGroup(m).labelUk).join(', ') || '-'}</strong>
               </div>
             </div>
 
             {prescribedSets && prescribedSets.some((s) => s.role === 'ramp') ? (
               <section className="exercise-section">
-                <h4>Ramp sets</h4>
+                <h4>Розминкові підходи</h4>
                 <p className="muted">
                   {prescribedSets
                     .filter((s) => s.role === 'ramp')
@@ -132,36 +133,35 @@ export function ExerciseDetailModal({
 
             {isGoalPriority && prescribedSets ? (
               <section className="exercise-section">
-                <h4>How this weight is calculated</h4>
+                <h4>Як розраховується ця вага</h4>
                 <p className="muted">
-                  {`This is your goal exercise, so it follows APRE: your last logged top set decides today's weight. Hit ${
-                    goalTrainingEmphasis ? TARGET_REPS_BY_EMPHASIS[goalTrainingEmphasis] : 'the'
-                  }+ reps at the working weight and next time it goes up by ${WEIGHT_INCREMENT_KG}kg; miss it and it repeats.`}
+                  {`Це ваша цільова вправа, тож застосовується APRE: останній залогований робочий підхід визначає сьогоднішню вагу. Виконайте ${
+                    goalTrainingEmphasis ? TARGET_REPS_BY_EMPHASIS[goalTrainingEmphasis] : ''
+                  }+ повторень на робочій вазі — і наступного разу вона зросте на ${WEIGHT_INCREMENT_KG}кг; якщо ні — повториться.`}
                 </p>
                 {heldStreak && heldStreak > 0 ? (
-                  <p className="note">
-                    Held at this weight for {heldStreak} session{heldStreak !== 1 ? 's' : ''} in a row.
-                  </p>
+                  <p className="note">Утримання на цій вазі {heldStreak} сесій поспіль.</p>
                 ) : null}
                 {deloaded ? (
                   <p className="note">
-                    ⚠️ Deload suggested — overloaded (ACWR) or stalled for 2+ sessions, so progression is paused this
-                    session even though the weight above may look unchanged from last time.
+                    ⚠️ Рекомендовано розвантаження — перевантаження (ACWR) або застій 2+ сесії, тож прогресію
+                    призупинено цю сесію, навіть якщо вага вище виглядає незмінною з минулого разу.
                   </p>
                 ) : null}
               </section>
             ) : !isGoalPriority && prescribedSets ? (
               <section className="exercise-section">
-                <h4>How this weight is calculated</h4>
+                <h4>Як розраховується ця вага</h4>
                 <p className="muted">
-                  This is a maintenance exercise — it repeats your last logged weight rather than progressing automatically.
+                  Це підтримувальна вправа — вона повторює вашу останню залоговану вагу замість автоматичної
+                  прогресії.
                 </p>
               </section>
             ) : null}
 
             {history && history.length > 0 ? (
               <section className="exercise-section">
-                <p className="muted exercise-history-label">History ({history.length} session{history.length !== 1 ? 's' : ''})</p>
+                <p className="muted exercise-history-label">Історія ({history.length} сесій)</p>
                 <div className="exercise-history-all">
                   {history.map((entry) => (
                     <span key={entry.completedAt} className="exercise-history-chip">
@@ -174,7 +174,7 @@ export function ExerciseDetailModal({
 
             {exercise.instructionsEn && exercise.instructionsEn.length > 0 ? (
               <section className="exercise-section">
-                <h4>Instructions</h4>
+                <h4>Інструкції</h4>
                 <ol>
                   {exercise.instructionsEn.map((step, i) => (
                     <li key={i}>{step}</li>

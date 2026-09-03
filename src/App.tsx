@@ -26,6 +26,7 @@ import { HistoryTab } from './components/engine/HistoryTab'
 import { CalendarTab } from './components/engine/CalendarTab'
 import { useEngineState } from './components/engine/useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock } from './application/activeGoal'
+import { getMuscleGroup } from './domain/muscles/muscleTaxonomy'
 import { INITIAL_STATE as ENGINE_INITIAL_STATE, isPersistedState } from './application/state'
 import './App.css'
 
@@ -71,7 +72,7 @@ function App() {
     if (!saved) {
       queueMicrotask(() => {
         setDataMessage(
-          "Couldn't save your last change — your device's local storage may be full. Free up space or export a backup soon.",
+          "Не вдалося зберегти останню зміну — можливо, локальне сховище пристрою заповнене. Звільніть місце або незабаром експортуйте резервну копію.",
         )
       })
     }
@@ -85,7 +86,7 @@ function App() {
 
   function handleResetAllData(): void {
     const approved = window.confirm(
-      'This will remove all runs and logs and load seeded templates, AND erase your autonomous-engine profile, goals, and training history. Continue?',
+      'Це видалить усі тренування та логи, завантажить початкові шаблони, А ТАКОЖ стере ваш профіль автономного модуля, цілі та історію тренувань. Продовжити?',
     )
     if (!approved) {
       return
@@ -97,12 +98,12 @@ function App() {
       templates: seededProgramTemplates,
     })
     engineDispatch({ type: 'REPLACE_STATE', state: ENGINE_INITIAL_STATE })
-    setDataMessage('State reset to seeded templates. Autonomous-engine data erased too.')
+    setDataMessage('Стан скинуто до початкових шаблонів. Дані автономного модуля також стерто.')
   }
 
   function handleExportLogsExcel(): void {
     if (state.workoutLogs.length === 0) {
-      setDataMessage('No logs to export.')
+      setDataMessage('Немає логів для експорту.')
       return
     }
 
@@ -119,13 +120,11 @@ function App() {
       link.click()
       window.setTimeout(() => URL.revokeObjectURL(url), 0)
 
-      setDataMessage(
-        `Exported ${state.workoutLogs.length} workout log(s) to ${fileName}`,
-      )
+      setDataMessage(`Експортовано ${state.workoutLogs.length} тренування(нь) у ${fileName}`)
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Unknown export error.'
-      setDataMessage(`Excel export failed: ${message}`)
+        error instanceof Error ? error.message : 'Невідома помилка.'
+      setDataMessage(`Помилка експорту в Excel: ${message}`)
     }
   }
 
@@ -143,13 +142,13 @@ function App() {
       const logs = importWorkoutLogsFromExcel(buffer)
       if (!logs) {
         setDataMessage(
-          'Import failed: could not parse the Excel file. Make sure it has the required columns (logId, runId, etc.).',
+          'Помилка імпорту: не вдалося розпізнати файл Excel. Перевірте, що він містить потрібні колонки (logId, runId тощо).',
         )
         return
       }
 
       const approved = window.confirm(
-        `Import ${logs.length} workout log(s) from "${file.name}"? This will replace all current logs and recalculate run counters.`,
+        `Імпортувати ${logs.length} тренування(нь) з "${file.name}"? Це замінить усі поточні логи та перерахує лічильники тренувань.`,
       )
       if (!approved) {
         return
@@ -157,10 +156,10 @@ function App() {
 
       dispatch({ type: 'importLogs', logs })
       setDataMessage(
-        `Imported ${logs.length} workout log(s) from ${file.name}. Run counters recalculated.`,
+        `Імпортовано ${logs.length} тренування(нь) з ${file.name}. Лічильники тренувань перераховано.`,
       )
     } catch {
-      setDataMessage('Failed to read the Excel file.')
+      setDataMessage('Не вдалося прочитати файл Excel.')
     }
   }
 
@@ -188,7 +187,7 @@ function App() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const fileName = `training-os-backup-${timestamp}.json`
     downloadCombinedBackup(exportAppStateJson(state), fileName)
-    setDataMessage(`Backup downloaded: ${fileName} (includes autonomous-engine data)`)
+    setDataMessage(`Резервну копію завантажено: ${fileName} (включає дані автономного модуля)`)
   }
 
   function handleExportCleanState(): void {
@@ -196,13 +195,13 @@ function App() {
     const fileName = `training-os-backup-clean-${timestamp}.json`
     downloadCombinedBackup(exportCleanAppStateJson(state), fileName)
     setDataMessage(
-      `Clean backup downloaded: ${fileName} (archived/completed runs excluded, active/paused runs only; includes autonomous-engine data)`,
+      `Чисту копію завантажено: ${fileName} (архівні/завершені тренування виключено, лише активні/призупинені; включає дані автономного модуля)`,
     )
   }
 
   function handleExportEngineLogsExcel(): void {
     if (engineState.workoutLogs.length === 0) {
-      setDataMessage('No engine logs to export.')
+      setDataMessage('Немає логів автономного модуля для експорту.')
       return
     }
 
@@ -219,10 +218,10 @@ function App() {
       link.click()
       window.setTimeout(() => URL.revokeObjectURL(url), 0)
 
-      setDataMessage(`Exported ${engineState.workoutLogs.length} engine workout log(s) to ${fileName}`)
+      setDataMessage(`Експортовано ${engineState.workoutLogs.length} тренування(нь) автономного модуля у ${fileName}`)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown export error.'
-      setDataMessage(`Engine Excel export failed: ${message}`)
+      const message = error instanceof Error ? error.message : 'Невідома помилка.'
+      setDataMessage(`Помилка експорту логів автономного модуля в Excel: ${message}`)
     }
   }
 
@@ -244,13 +243,13 @@ function App() {
   function handleImportState(): void {
     const imported = importStateFromJson(importText)
     if (!imported) {
-      setDataMessage('Import failed: invalid JSON payload.')
+      setDataMessage('Помилка імпорту: недійсний JSON.')
       return
     }
 
     dispatch({ type: 'hydrate', payload: imported })
     const restoredEngine = restoreEngineStateIfPresent(importText)
-    setDataMessage(`State imported successfully${restoredEngine ? ' (including autonomous-engine data)' : ''}.`)
+    setDataMessage(`Стан успішно імпортовано${restoredEngine ? ' (включно з даними автономного модуля)' : ''}.`)
   }
 
   async function handleImportStateFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -264,16 +263,16 @@ function App() {
       const text = await file.text()
       const imported = importStateFromJson(text)
       if (!imported) {
-        setDataMessage('Import failed: invalid JSON payload in file.')
+        setDataMessage('Помилка імпорту: недійсний JSON у файлі.')
         return
       }
 
       dispatch({ type: 'hydrate', payload: imported })
       const restoredEngine = restoreEngineStateIfPresent(text)
       setImportText(text)
-      setDataMessage(`Imported backup file: ${file.name}${restoredEngine ? ' (including autonomous-engine data)' : ''}`)
+      setDataMessage(`Імпортовано файл резервної копії: ${file.name}${restoredEngine ? ' (включно з даними автономного модуля)' : ''}`)
     } catch {
-      setDataMessage('Failed to read backup file.')
+      setDataMessage('Не вдалося прочитати файл резервної копії.')
     }
   }
 
@@ -282,29 +281,29 @@ function App() {
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <h1>Training Control Panel</h1>
+          <h1>Панель керування тренуваннями</h1>
           <p className="subtitle">
-            Session-based logic. Fast pre-workout plan view. Quick post-workout log.
+            Логіка на основі сесій. Швидкий перегляд плану перед тренуванням. Швидке логування після тренування.
           </p>
         </div>
 
         <div className="header-kpis">
           <div className="kpi">
-            <span>Focus muscle</span>
-            <strong>{engineActive ? engineActive.block.focusMuscle : 'None'}</strong>
+            <span>Фокус-група</span>
+            <strong>{engineActive ? getMuscleGroup(engineActive.block.focusMuscle).labelUk : 'Немає'}</strong>
           </div>
           <div className="kpi">
-            <span>Sessions this block</span>
+            <span>Сесій у цьому блоці</span>
             <strong>{engineSessionsInBlock}</strong>
           </div>
           <div className="kpi">
-            <span>History Logs</span>
+            <span>Логів історії</span>
             <strong>{engineState.workoutLogs.length}</strong>
           </div>
         </div>
       </header>
 
-      <nav className="tabs" aria-label="Main views">
+      <nav className="tabs" aria-label="Основні розділи">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -344,32 +343,30 @@ function App() {
       {activeTab === 'data' && (
         <section className="panel-grid">
           <article className="card card-wide">
-            <h2>Import / Data Management</h2>
+            <h2>Імпорт / Керування даними</h2>
             <p className="muted">
-              Use one-tap JSON backup files to keep your training data safe between app
-              updates.
+              Використовуйте резервні копії JSON, щоб зберегти дані тренувань у безпеці між оновленнями апки.
             </p>
 
             <div className="template-group">
-              <h3>State Backup</h3>
+              <h3>Резервна копія стану</h3>
               <p className="muted">
-                Covers both your real training data (goals, workout history, profile — the
-                data every tab except Програми/Дані uses) and the legacy Програми/Дані data,
-                in one file. Use the clean backup when cache-busting or updating your app
-                (excludes archived/completed runs). Use full backup to preserve all
-                historical data.
+                Охоплює як ваші реальні дані тренувань (цілі, історію, профіль — дані, які використовує кожна
+                вкладка, окрім Програми/Дані), так і застарілі дані Програми/Дані, в одному файлі. Використовуйте
+                чисту копію при очищенні кешу чи оновленні апки (без архівних/завершених тренувань). Використовуйте
+                повну копію, щоб зберегти всю історію.
               </p>
               <div className="action-row">
                 <button type="button" onClick={handleExportCleanState}>
-                  Download Clean Backup (Recommended)
+                  Завантажити чисту копію (рекомендовано)
                 </button>
                 <button type="button" onClick={handleExportState}>
-                  Download Full Backup
+                  Завантажити повну копію
                 </button>
               </div>
               <div className="action-row">
                 <label className="stacked-field inline-file-field">
-                  Import Backup JSON File
+                  Імпортувати файл резервної копії JSON
                   <input
                     type="file"
                     accept=".json,application/json"
@@ -380,12 +377,12 @@ function App() {
             </div>
 
             <div className="template-group">
-              <h3>Log History Export / Import</h3>
+              <h3>Експорт / імпорт історії логів</h3>
               <p className="muted">
-                "Export Logs to Excel" below is your real, current training history (the
-                engine data every tab uses). Edit it externally (adjust weights, dates, etc.)
-                if needed. The legacy import/export pair underneath is for the old,
-                no-longer-actively-used Програми/Дані log format.
+                "Експортувати логи в Excel" нижче — це ваша реальна, поточна історія тренувань (дані автономного
+                модуля, які використовує кожна вкладка). За потреби відредагуйте її зовні (змініть вагу, дати тощо).
+                Застаріла пара імпорту/експорту нижче — для старого, більше не використовуваного формату логів
+                Програми/Дані.
               </p>
               <div className="action-row">
                 <button
@@ -393,7 +390,7 @@ function App() {
                   onClick={handleExportEngineLogsExcel}
                   disabled={engineState.workoutLogs.length === 0}
                 >
-                  Export Logs to Excel ({engineState.workoutLogs.length})
+                  Експортувати логи в Excel ({engineState.workoutLogs.length})
                 </button>
               </div>
               <div className="action-row">
@@ -402,12 +399,12 @@ function App() {
                   onClick={handleExportLogsExcel}
                   disabled={state.workoutLogs.length === 0}
                 >
-                  Export Legacy Logs to Excel ({state.workoutLogs.length})
+                  Експортувати застарілі логи в Excel ({state.workoutLogs.length})
                 </button>
               </div>
               <div className="action-row">
                 <label className="stacked-field inline-file-field">
-                  Import Legacy Logs from Excel
+                  Імпортувати застарілі логи з Excel
                   <input
                     type="file"
                     accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -418,21 +415,21 @@ function App() {
             </div>
 
             <div className="template-group">
-              <h3>⚠️ Danger Zone</h3>
+              <h3>⚠️ Небезпечна зона</h3>
               <p className="muted">
                 Небезпечні операції — скидання та перезапис даних.
               </p>
               <div className="action-row">
                 <button type="button" onClick={handleResetAllData}>
-                  Reset All Data
+                  Скинути всі дані
                 </button>
                 <button type="button" onClick={handleImportState}>
-                  Import JSON From Box
+                  Імпортувати JSON з поля
                 </button>
               </div>
 
               <label className="stacked-field">
-                State JSON (legacy/manual import)
+                JSON стану (застарілий/ручний імпорт)
                 <textarea
                   value={importText}
                   onChange={(event) => setImportText(event.target.value)}

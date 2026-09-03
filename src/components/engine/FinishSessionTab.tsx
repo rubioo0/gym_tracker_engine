@@ -6,13 +6,14 @@ import { assembleTodaysSession } from '../../application/sessionOrchestration'
 import { prescribeSession, mostRecentTopSet, shouldDeloadGoalExercise } from '../../application/sessionPrescription'
 import { recentExerciseHistory } from '../../application/exerciseHistory'
 import { getExerciseById, isPerHandEquipment } from '../../domain/exerciseLibrary/exerciseLibrary'
+import { getMuscleGroup } from '../../domain/muscles/muscleTaxonomy'
 import { NumberDraftInput } from './NumberDraftInput'
 import type { ExerciseDifficulty, SetEntry, WorkoutLog } from '../../domain/workoutLog/types'
 
 const RENEWAL_MESSAGES: Record<GoalRenewalReason, string> = {
-  deadlinePassed: 'Your goal’s deadline has passed.',
-  targetMet: 'You hit your target!',
-  focusMuscleInjured: 'Your focus muscle is marked as injured.',
+  deadlinePassed: 'Дедлайн вашої цілі минув.',
+  targetMet: 'Ви досягли цілі!',
+  focusMuscleInjured: 'Вашу фокус-групу м’язів позначено як травмовану.',
 }
 
 /**
@@ -53,7 +54,7 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
     return (
       <section className="panel-grid">
         <article className="card">
-          <p className="muted">Loading…</p>
+          <p className="muted">Завантаження…</p>
         </article>
       </section>
     )
@@ -62,7 +63,7 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
     return (
       <section className="panel-grid">
         <article className="card">
-          <p>Set up your profile first, on the Setup tab.</p>
+          <p>Спершу налаштуйте профіль на вкладці Автопрофіль.</p>
         </article>
       </section>
     )
@@ -73,7 +74,7 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
     return (
       <section className="panel-grid">
         <article className="card">
-          <p>No active goal yet. Create one on the Setup tab to start training.</p>
+          <p>Ще немає активної цілі. Створіть її на вкладці Автопрофіль, щоб почати тренування.</p>
         </article>
       </section>
     )
@@ -87,7 +88,7 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
       <section className="panel-grid">
         <article className="card">
           <p className="note">{RENEWAL_MESSAGES[renewalReason]}</p>
-          <p className="muted">Set your next goal on the Setup tab.</p>
+          <p className="muted">Встановіть наступну ціль на вкладці Автопрофіль.</p>
         </article>
       </section>
     )
@@ -157,20 +158,23 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
     <section className="panel-grid">
       <article className="card card-wide">
         <h2>Завершити тренування</h2>
-        {justFinished ? <p className="note">Workout saved. Logging a fresh one below.</p> : null}
+        {justFinished ? <p className="note">Тренування збережено. Нижче — форма для наступного.</p> : null}
         {deloadGoalExercise ? (
           <p className="note">
-            ⚠️ Deload suggested for your goal exercise — overloaded (ACWR) or stalled for 2+ sessions. Progression is
-            paused this session; consider reducing the weight yourself if it still feels heavy.
+            ⚠️ Рекомендовано розвантаження для цільової вправи — перевантаження (ACWR) або застій 2+ сесії. Прогресію
+            призупинено цю сесію; за потреби зменшіть вагу самостійно, якщо вона все ще здається важкою.
           </p>
         ) : null}
-        <p className="muted">Focus: {active.block.focusMuscle}</p>
+        <p className="muted">Фокус: {getMuscleGroup(active.block.focusMuscle).labelUk}</p>
 
         {state.confirmedSessionInputs ? (
-          <p className="muted">Using today's plan from План сесії ({effectiveAvailableMinutes} min{effectiveNoGymToday ? ', no gym' : ''}).</p>
+          <p className="muted">
+            Використовується сьогоднішній план з "План сесії" ({effectiveAvailableMinutes} хв
+            {effectiveNoGymToday ? ', без залу' : ''}).
+          </p>
         ) : (
           <label className="log-checkbox-field inline-field">
-            No gym today
+            Сьогодні без залу
             <input
               type="checkbox"
               checked={noGymToday}
@@ -207,7 +211,7 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
               ) : null}
 
               <label className="log-checkbox-field">
-                Skip this exercise
+                Пропустити цю вправу
                 <input
                   type="checkbox"
                   checked={log.skipped}
@@ -250,7 +254,7 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
                     </div>
                   ))}
                   <label className="stacked-field">
-                    Difficulty
+                    Складність
                     <select
                       value={log.difficulty ?? ''}
                       onChange={(e) => {
@@ -261,9 +265,9 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
                       }}
                     >
                       <option value="">-</option>
-                      <option value="easy">easy</option>
-                      <option value="okay">okay</option>
-                      <option value="hard">hard</option>
+                      <option value="easy">легко</option>
+                      <option value="okay">нормально</option>
+                      <option value="hard">важко</option>
                     </select>
                   </label>
                 </>
@@ -273,7 +277,7 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
         })}
 
         <label className="log-checkbox-field">
-          Session successful
+          Сесія успішна
           <input
             type="checkbox"
             checked={successful}
@@ -284,7 +288,7 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
           />
         </label>
         <label className="stacked-field">
-          Note
+          Нотатка
           <input
             type="text"
             value={note}

@@ -2,7 +2,7 @@ import { useEngineState } from './useEngineState'
 import { getActiveGoalAndBlock } from '../../application/activeGoal'
 import { buildMuscleLoadEntries } from '../../application/muscleLoadHistory'
 import { projectedCompletionDate, isOnTrack, ESTIMATED_WEEKLY_RATE_KG_BY_EXPERIENCE } from '../../domain/goals/goalProjection'
-import { acuteLoad, chronicLoad, acwr, classifyAcwrZone, isDetrainingRisk } from '../../domain/acwr/acwr'
+import { acuteLoad, chronicLoad, acwr, classifyAcwrZone, isDetrainingRisk, type AcwrZone } from '../../domain/acwr/acwr'
 import { maxSafeWeeklyLoad } from '../../domain/autoCorrection/autoCorrection'
 import { getExerciseById } from '../../domain/exerciseLibrary/exerciseLibrary'
 import { MUSCLE_GROUPS } from '../../domain/muscles/muscleTaxonomy'
@@ -12,6 +12,14 @@ import type { WorkoutLog } from '../../domain/workoutLog/types'
 import './StatsTab.css'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+const ZONE_LABELS_UK: Record<AcwrZone, string> = {
+  insufficientData: 'недостатньо даних',
+  low: 'низьке',
+  safe: 'безпечне',
+  elevated: 'підвищене',
+  high: 'високе',
+}
 
 interface MonthBucket {
   label: string
@@ -25,7 +33,7 @@ function buildEmptyMonths(today: Date): MonthBucket[] {
   for (let i = 5; i >= 0; i--) {
     const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    const label = d.toLocaleString('en-US', { month: 'short', year: '2-digit' })
+    const label = d.toLocaleString('uk-UA', { month: 'short', year: '2-digit' })
     months.push({ label, key, count: 0 })
   }
   return months
@@ -80,7 +88,7 @@ export function StatsTab() {
     return (
       <section className="panel-grid">
         <article className="card">
-          <p className="muted">Loading…</p>
+          <p className="muted">Завантаження…</p>
         </article>
       </section>
     )
@@ -145,41 +153,41 @@ export function StatsTab() {
   return (
     <section className="panel-grid">
       <article className="card card-wide">
-        <h2>Summary</h2>
+        <h2>Зведення</h2>
         <div className="header-kpis">
           <div className="kpi">
-            <span>Total workouts</span>
+            <span>Всього тренувань</span>
             <strong>{totalWorkouts}</strong>
           </div>
           <div className="kpi">
-            <span>Success rate</span>
+            <span>Успішність</span>
             <strong>{successRate}%</strong>
           </div>
           <div className="kpi">
-            <span>Active goals</span>
+            <span>Активні цілі</span>
             <strong>{active ? 1 : 0}</strong>
           </div>
           <div className="kpi">
-            <span>Completed exercises</span>
+            <span>Виконано вправ</span>
             <strong>{completedExerciseCount}</strong>
           </div>
         </div>
       </article>
 
       <article className="card">
-        <h2>Consistency</h2>
+        <h2>Регулярність</h2>
         <p>
-          Current streak: <strong>{streakWeeks} week(s)</strong>
+          Поточна серія: <strong>{streakWeeks} тижн.</strong>
         </p>
         <p>
-          Avg workouts/week (last 12 weeks): <strong>{avgPerWeek}</strong>
+          Сер. тренувань/тиждень (останні 12 тижнів): <strong>{avgPerWeek}</strong>
         </p>
       </article>
 
       <article className="card card-wide">
-        <h2>Activity (months)</h2>
+        <h2>Активність (місяці)</h2>
         {totalWorkouts === 0 ? (
-          <p className="muted">No data yet.</p>
+          <p className="muted">Ще немає даних.</p>
         ) : (
           <div className="stats-bar-chart">
             {monthlyActivity.map(({ label, key, count }) => (
@@ -188,7 +196,7 @@ export function StatsTab() {
                   <div
                     className="stats-bar-fill"
                     style={{ height: `${Math.round((count / maxMonthCount) * 100)}%` }}
-                    title={`${count} workout(s)`}
+                    title={`${count} тренування(нь)`}
                   />
                 </div>
                 <span className="stats-bar-label">{count}</span>
@@ -200,9 +208,9 @@ export function StatsTab() {
       </article>
 
       <article className="card">
-        <h2>Goal Progress</h2>
+        <h2>Прогрес цілі</h2>
         {allGoalBlocks.length === 0 ? (
-          <p className="muted">No goals yet.</p>
+          <p className="muted">Ще немає цілей.</p>
         ) : (
           <ul className="list-plain">
             {allGoalBlocks.map(({ block, goal }) => {
@@ -216,14 +224,14 @@ export function StatsTab() {
                 <li key={goal.id} className="item-row item-row-stack">
                   <div>
                     <strong>{exercise?.nameEn ?? goal.exerciseId}</strong>{' '}
-                    {block.endedAt ? <span className="muted">(ended)</span> : <span className="note">(active)</span>}
+                    {block.endedAt ? <span className="muted">(завершено)</span> : <span className="note">(активна)</span>}
                     <div className="muted">
-                      {goal.startingWeightKg}kg → {goal.targetWeightKg}kg | current {currentWeightKg}kg
+                      {goal.startingWeightKg}кг → {goal.targetWeightKg}кг | поточна {currentWeightKg}кг
                     </div>
                     <div className="muted">
                       {projected === null
-                        ? 'Projection unavailable.'
-                        : `${onTrack ? 'On track' : 'Behind schedule'} — projected ${projected.toISOString().slice(0, 10)}`}
+                        ? 'Прогноз недоступний.'
+                        : `${onTrack ? 'За графіком' : 'Відстає'} — прогноз ${projected.toISOString().slice(0, 10)}`}
                     </div>
                   </div>
                 </li>
@@ -234,16 +242,16 @@ export function StatsTab() {
       </article>
 
       <article className="card">
-        <h2>Exercise Personal Records</h2>
+        <h2>Особисті рекорди</h2>
         {prs.length === 0 ? (
-          <p className="muted">No working sets logged yet.</p>
+          <p className="muted">Ще немає залогованих робочих сетів.</p>
         ) : (
           <ul className="list-plain">
             {prs.map(({ id, best }) => (
               <li key={id} className="item-row">
                 <span>{getExerciseById(id)?.nameEn ?? id}</span>
                 <span className="muted">
-                  {best.weightKg}kg on {best.completedAt.slice(0, 10)}
+                  {best.weightKg}кг від {best.completedAt.slice(0, 10)}
                 </span>
               </li>
             ))}
@@ -252,9 +260,9 @@ export function StatsTab() {
       </article>
 
       <article className="card">
-        <h2>Baseline → Current Progress</h2>
+        <h2>Базове → поточне значення</h2>
         {allGoalBlocks.length === 0 ? (
-          <p className="muted">No goals yet.</p>
+          <p className="muted">Ще немає цілей.</p>
         ) : (
           <ul className="list-plain">
             {allGoalBlocks.map(({ goal }) => {
@@ -265,7 +273,7 @@ export function StatsTab() {
                 <li key={goal.id} className="item-row">
                   <span>{getExerciseById(goal.exerciseId)?.nameEn ?? goal.exerciseId}</span>
                   <span className="muted">
-                    +{gainKg}kg ({gainPct}%)
+                    +{gainKg}кг ({gainPct}%)
                   </span>
                 </li>
               )
@@ -275,21 +283,21 @@ export function StatsTab() {
       </article>
 
       <article className="card card-wide">
-        <h2>Per-Muscle Load (ACWR)</h2>
+        <h2>Навантаження по м’язах (ACWR)</h2>
         {muscleStats.length === 0 ? (
-          <p className="muted">No logged sets yet.</p>
+          <p className="muted">Ще немає залогованих сетів.</p>
         ) : (
           <ul className="list-plain">
             {muscleStats.map(({ muscle, acute, chronic, ratio, zone, detrainingRisk, safeWeeklySets }) => (
               <li key={muscle.id} className="item-row item-row-stack">
                 <div>
-                  <strong>{muscle.labelEn}</strong>
+                  <strong>{muscle.labelUk}</strong>
                   <div className="muted">
-                    Acute (7d): {acute} hard sets | Chronic (28d): {chronic} hard sets | ACWR:{' '}
-                    {ratio === null ? 'n/a' : ratio.toFixed(2)} ({zone}) | Safe weekly ceiling:{' '}
-                    {safeWeeklySets.toFixed(1)} sets
+                    Гостре (7д): {acute} важк. сетів | Хронічне (28д): {chronic} важк. сетів | ACWR:{' '}
+                    {ratio === null ? 'н/д' : ratio.toFixed(2)} ({ZONE_LABELS_UK[zone]}) | Безпечна тижнева стеля:{' '}
+                    {safeWeeklySets.toFixed(1)} сетів
                   </div>
-                  {detrainingRisk ? <div className="note">Detraining risk — no load in 14+ days.</div> : null}
+                  {detrainingRisk ? <div className="note">Ризик детренованості — без навантаження 14+ днів.</div> : null}
                 </div>
               </li>
             ))}

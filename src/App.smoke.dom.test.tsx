@@ -89,7 +89,7 @@ describe('App smoke test', () => {
 
   it('shows the home tab by default without throwing', () => {
     renderApp()
-    expect(screen.getByText('Training Control Panel')).toBeTruthy()
+    expect(screen.getByText('Панель керування тренуваннями')).toBeTruthy()
   })
 
   it('shows a banner (not a silent failure) when the engine state fails to load', async () => {
@@ -104,7 +104,7 @@ describe('App smoke test', () => {
         <App />
       </EngineStateProvider>,
     )
-    expect((await screen.findByRole('alert')).textContent).toMatch(/couldn't load/i)
+    expect((await screen.findByRole('alert')).textContent).toMatch(/не вдалося завантажити/i)
   })
 
   it('shows a banner (not a silent failure) when the engine state fails to save', async () => {
@@ -119,7 +119,7 @@ describe('App smoke test', () => {
         <App />
       </EngineStateProvider>,
     )
-    expect((await screen.findByRole('alert')).textContent).toMatch(/couldn't save/i)
+    expect((await screen.findByRole('alert')).textContent).toMatch(/не вдалося зберегти/i)
   })
 
   it('"План сесії" now shows the engine-driven Today content, not the old SessionPlanPanel', async () => {
@@ -128,7 +128,7 @@ describe('App smoke test', () => {
     // Fresh disposable state has no engine profile yet, so the engine's own
     // guidance message should appear -- proof this tab is wired to the new
     // engine, not the old plannedSession/SessionPlanPanel logic.
-    expect(await screen.findByText('Set up your profile first, on the Setup tab.')).toBeTruthy()
+    expect(await screen.findByText('Спершу налаштуйте профіль на вкладці Автопрофіль.')).toBeTruthy()
   })
 
   it('"Автопрофіль" renders the profile setup form', async () => {
@@ -137,8 +137,8 @@ describe('App smoke test', () => {
     // The engine's "loaded" flag flips asynchronously (even the disposable
     // stub repository resolves via a microtask), so this needs findBy*
     // rather than getBy* to wait past the initial "Loading…" render.
-    expect(await screen.findByText('Profile')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Save profile' })).toBeTruthy()
+    expect(await screen.findByText('Профіль')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Зберегти профіль' })).toBeTruthy()
   })
 
   it('"Автопрофіль" suggests the least-recently-trained muscle for a new goal, not just the first in the list (pickNextFocus wiring)', async () => {
@@ -156,23 +156,23 @@ describe('App smoke test', () => {
     }
     renderApp(seedState)
     fireEvent.click(screen.getByRole('button', { name: 'Автопрофіль' }))
-    expect(await screen.findByText(/Suggested next focus/)).toBeTruthy()
+    expect(await screen.findByText(/Пропонований наступний фокус/)).toBeTruthy()
     // "Back" alone is ambiguous (it's also a <select> option) -- check the
     // actual wiring instead: the muscle-group picker's initial value.
-    const muscleSelect = screen.getByLabelText('Muscle group') as HTMLSelectElement
+    const muscleSelect = screen.getByLabelText("Група м'язів") as HTMLSelectElement
     expect(muscleSelect.value).toBe('back')
   })
 
   it('"Дані" (Data) tab renders without throwing', () => {
     renderApp()
     fireEvent.click(screen.getByRole('button', { name: 'Дані' }))
-    expect(screen.getByText('Import / Data Management')).toBeTruthy()
+    expect(screen.getByText('Імпорт / Керування даними')).toBeTruthy()
   })
 
   it('"Дані" JSON import (textarea + Import JSON From Box) actually replaces old-tree state -- previously untested parsing path', async () => {
     renderApp()
     fireEvent.click(screen.getByRole('button', { name: 'Дані' }))
-    await screen.findByText('Import / Data Management')
+    await screen.findByText('Імпорт / Керування даними')
 
     const payload = {
       backupVersion: 2,
@@ -202,12 +202,12 @@ describe('App smoke test', () => {
       },
     }
 
-    const textarea = screen.getByLabelText('State JSON (legacy/manual import)')
+    const textarea = screen.getByLabelText('JSON стану (застарілий/ручний імпорт)')
     fireEvent.change(textarea, { target: { value: JSON.stringify(payload) } })
-    fireEvent.click(screen.getByRole('button', { name: 'Import JSON From Box' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Імпортувати JSON з поля' }))
 
-    expect(await screen.findByText('State imported successfully.')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Export Legacy Logs to Excel (1)' })).toBeTruthy()
+    expect(await screen.findByText('Стан успішно імпортовано.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Експортувати застарілі логи в Excel (1)' })).toBeTruthy()
   })
 
   it(
@@ -217,7 +217,7 @@ describe('App smoke test', () => {
     async () => {
       renderApp()
       fireEvent.click(screen.getByRole('button', { name: 'Дані' }))
-      await screen.findByText('Import / Data Management')
+      await screen.findByText('Імпорт / Керування даними')
 
       const payload = {
         backupVersion: 3,
@@ -234,11 +234,11 @@ describe('App smoke test', () => {
         engineState: SEEDED_STATE_WITH_ACTIVE_GOAL,
       }
 
-      const textarea = screen.getByLabelText('State JSON (legacy/manual import)')
+      const textarea = screen.getByLabelText('JSON стану (застарілий/ручний імпорт)')
       fireEvent.change(textarea, { target: { value: JSON.stringify(payload) } })
-      fireEvent.click(screen.getByRole('button', { name: 'Import JSON From Box' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Імпортувати JSON з поля' }))
 
-      expect(await screen.findByText('State imported successfully (including autonomous-engine data).')).toBeTruthy()
+      expect(await screen.findByText('Стан успішно імпортовано (включно з даними автономного модуля).')).toBeTruthy()
 
       // The engine tree (goal/block from SEEDED_STATE_WITH_ACTIVE_GOAL) is
       // really there now, not just the old tree -- proven via Головна,
@@ -261,8 +261,8 @@ describe('App smoke test', () => {
       // legitimately crowd out an isolation goal exercise like Barbell Curl
       // in favor of higher-priority compounds -- this test is about the
       // finish flow, not time-crunch cutting.
-      fireEvent.change(await screen.findByLabelText('Minutes available today'), { target: { value: '300' } })
-      fireEvent.click(screen.getByRole('button', { name: 'Assemble my session' }))
+      fireEvent.change(await screen.findByLabelText('Хвилин доступно сьогодні'), { target: { value: '300' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Зібрати мою сесію' }))
 
       const goToFinishButton = await screen.findByRole('button', { name: 'Перейти до Завершити' })
       expect(await screen.findByText('Barbell Curl')).toBeTruthy()
@@ -308,10 +308,10 @@ describe('App smoke test', () => {
       renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
 
       fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
-      expect(await screen.findByRole('heading', { name: "Before we assemble today's session" })).toBeTruthy()
+      expect(await screen.findByRole('heading', { name: 'Перш ніж зібрати сьогоднішню сесію' })).toBeTruthy()
       // Generous budget -- see the comment on the flow test above for why.
-      fireEvent.change(screen.getByLabelText('Minutes available today'), { target: { value: '300' } })
-      fireEvent.click(screen.getByRole('button', { name: 'Assemble my session' }))
+      fireEvent.change(screen.getByLabelText('Хвилин доступно сьогодні'), { target: { value: '300' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Зібрати мою сесію' }))
       expect(await screen.findByText('Barbell Curl')).toBeTruthy()
 
       // Nav away and back, without deliberately choosing to change anything.
@@ -321,18 +321,18 @@ describe('App smoke test', () => {
       // Straight to the already-confirmed plan -- no re-ask, no way to have
       // accidentally landed on a different time budget.
       expect(await screen.findByText('Barbell Curl')).toBeTruthy()
-      expect(screen.queryByRole('heading', { name: "Before we assemble today's session" })).toBeNull()
+      expect(screen.queryByRole('heading', { name: 'Перш ніж зібрати сьогоднішню сесію' })).toBeNull()
 
       // The explicit override is still there for a deliberate change.
-      fireEvent.click(screen.getByRole('button', { name: 'Change time / location' }))
-      expect(await screen.findByRole('heading', { name: "Before we assemble today's session" })).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Змінити час / місце' }))
+      expect(await screen.findByRole('heading', { name: 'Перш ніж зібрати сьогоднішню сесію' })).toBeTruthy()
     },
   )
 
   it('"Головна" shows engine-driven empty-state guidance on a fresh profile-less state, not the old plannedSession/lastWorkout cards', async () => {
     renderApp()
-    expect(await screen.findByText('Set up your profile first, on the Автопрофіль tab.')).toBeTruthy()
-    expect(screen.getByText('No logged sessions yet.')).toBeTruthy()
+    expect(await screen.findByText('Спершу налаштуйте профіль на вкладці Автопрофіль.')).toBeTruthy()
+    expect(screen.getByText('Ще немає залогованих сесій.')).toBeTruthy()
   })
 
   it('"Головна" shows the active goal and a real logged session once one exists', async () => {
@@ -349,9 +349,9 @@ describe('App smoke test', () => {
     }
     renderApp(seedWithLog)
     expect(await screen.findByText('Barbell Curl')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'View Plan' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Finish / Log Session' })).toBeTruthy()
-    expect(screen.getByText('Successful')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Переглянути план' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Завершити / залогувати сесію' })).toBeTruthy()
+    expect(screen.getByText('Успішно')).toBeTruthy()
   })
 
   it('"Тренування" shows the active goal, and "End this goal early" actually ends it (no active goal afterward)', async () => {
@@ -360,10 +360,10 @@ describe('App smoke test', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Тренування' }))
     expect(await screen.findByText('Barbell Curl')).toBeTruthy()
-    expect(screen.getByText('No ended goals yet.')).toBeTruthy()
+    expect(screen.getByText('Ще немає завершених цілей.')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'End this goal early' }))
-    expect(await screen.findByText('No active goal. Set one on the Автопрофіль tab.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Завершити ціль достроково' }))
+    expect(await screen.findByText('Немає активної цілі. Встановіть її на вкладці Автопрофіль.')).toBeTruthy()
     expect(screen.getByText('Barbell Curl')).toBeTruthy() // now shows up in history instead
   })
 
@@ -384,31 +384,31 @@ describe('App smoke test', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Історія' }))
     expect(await screen.findByText('Barbell Curl')).toBeTruthy()
     expect(screen.getByText('Felt strong')).toBeTruthy()
-    expect(screen.getByText('20kg×5')).toBeTruthy()
+    expect(screen.getByText('20кг×5')).toBeTruthy()
   })
 
   it('"Історія" shows "No logs yet." on a fresh state', async () => {
     renderApp()
     fireEvent.click(screen.getByRole('button', { name: 'Історія' }))
-    expect(await screen.findByText('No logs yet.')).toBeTruthy()
+    expect(await screen.findByText('Ще немає логів.')).toBeTruthy()
   })
 
   it('"Календар" shows the active goal\'s focus, header stats, and at least one projected entry with exercise detail', async () => {
     renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
     fireEvent.click(screen.getByRole('button', { name: 'Календар' }))
     expect(await screen.findByText('Barbell Curl', { exact: false })).toBeTruthy()
-    expect(screen.getByText('Projected goal completion')).toBeTruthy()
+    expect(screen.getByText('Прогнозоване завершення цілі')).toBeTruthy()
     expect(document.querySelectorAll('.calendar-session.projected').length).toBeGreaterThan(0)
 
     // Expand the first session to confirm per-entry exercise detail renders.
-    fireEvent.click(screen.getAllByRole('button', { name: /Session \d+/ })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: /Сесія \d+/ })[0])
     expect(screen.getAllByText(/×/).length).toBeGreaterThan(0)
   })
 
   it('"Календар" points to Автопрофіль when there is no active goal', async () => {
     renderApp()
     fireEvent.click(screen.getByRole('button', { name: 'Календар' }))
-    expect(await screen.findByText('No active goal yet. Create one on the Автопрофіль tab to start training.')).toBeTruthy()
+    expect(await screen.findByText('Ще немає активної цілі. Створіть її на вкладці Автопрофіль, щоб почати тренування.')).toBeTruthy()
   })
 
   it('"Статистика" renders KPIs, goal progress, PRs, the monthly bar chart, and the per-muscle ACWR section with a concrete computed value', async () => {
@@ -431,35 +431,35 @@ describe('App smoke test', () => {
     }
     renderApp(seedWithLog)
     fireEvent.click(screen.getByRole('button', { name: 'Статистика' }))
-    expect(await screen.findByText('Total workouts')).toBeTruthy()
+    expect(await screen.findByText('Всього тренувань')).toBeTruthy()
     expect(screen.getAllByText('Barbell Curl').length).toBeGreaterThan(0)
-    expect(screen.getByText('Activity (months)')).toBeTruthy()
+    expect(screen.getByText('Активність (місяці)')).toBeTruthy()
     expect(document.querySelectorAll('.stats-bar-fill').length).toBe(6) // 6 zero-filled months, always rendered
-    expect(screen.getByText('Biceps')).toBeTruthy() // per-muscle ACWR section
+    expect(screen.getAllByText('Біцепс').length).toBeGreaterThan(0) // per-muscle ACWR section (also shown in the header KPI)
     // Concrete computed value, not just label presence: biceps is
     // Barbell_Curl's primary muscle, one working set logged yesterday ->
     // 1 hard set, safely inside the 7-day acute window.
-    expect(screen.getByText(/Acute \(7d\): 1 hard sets/)).toBeTruthy()
-    expect(screen.getAllByText(/Safe weekly ceiling: [\d.]+ sets/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Гостре \(7д\): 1 важк\. сетів/)).toBeTruthy()
+    expect(screen.getAllByText(/Безпечна тижнева стеля: [\d.]+ сетів/).length).toBeGreaterThan(0)
   })
 
   it('"Статистика" renders empty-state messages on a fresh state without throwing', async () => {
     renderApp()
     fireEvent.click(screen.getByRole('button', { name: 'Статистика' }))
-    expect(await screen.findByText('Total workouts')).toBeTruthy()
-    expect(screen.getAllByText('No goals yet.')).toHaveLength(2) // Goal Progress + Baseline sections
-    expect(screen.getByText('No working sets logged yet.')).toBeTruthy()
-    expect(screen.getByText('No logged sets yet.')).toBeTruthy()
+    expect(await screen.findByText('Всього тренувань')).toBeTruthy()
+    expect(screen.getAllByText('Ще немає цілей.')).toHaveLength(2) // Goal Progress + Baseline sections
+    expect(screen.getByText('Ще немає залогованих робочих сетів.')).toBeTruthy()
+    expect(screen.getByText('Ще немає залогованих сетів.')).toBeTruthy()
   })
 
   it("Завершити uses the same plan already confirmed on План сесії, and forgets it again once the workout is logged (ready to ask fresh for the next one)", async () => {
     renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
 
     fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Assemble my session' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Зібрати мою сесію' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Перейти до Завершити' }))
 
-    expect(await screen.findByText(/Using today's plan from План сесії/)).toBeTruthy()
+    expect(await screen.findByText(/Використовується сьогоднішній план з "План сесії"/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Завершити тренування' }))
     // Submitting navigates to Головна now (matches the old app) -- proven by
     // the last-completed-session card rendering there.
@@ -469,7 +469,7 @@ describe('App smoke test', () => {
     // it asks fresh for the next (now-unlogged) session rather than reusing
     // the just-completed answer.
     fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
-    expect(await screen.findByRole('heading', { name: "Before we assemble today's session" })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Перш ніж зібрати сьогоднішню сесію' })).toBeTruthy()
   })
 
   it(
@@ -484,14 +484,14 @@ describe('App smoke test', () => {
       expect(await screen.findByText('Barbell Curl')).toBeTruthy()
 
       fireEvent.click(screen.getByRole('button', { name: 'Дані' }))
-      fireEvent.click(await screen.findByRole('button', { name: 'Reset All Data' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Скинути всі дані' }))
 
       fireEvent.click(screen.getByRole('button', { name: 'Головна' }))
       // Reset clears profile too, so Home falls back to its earliest guard
       // ("set up your profile") rather than the "no active goal" message --
       // either way, proof the seeded goal/profile/logs are all really gone.
-      expect(await screen.findByText('Set up your profile first, on the Автопрофіль tab.')).toBeTruthy()
-      expect(screen.getByText('No logged sessions yet.')).toBeTruthy()
+      expect(await screen.findByText('Спершу налаштуйте профіль на вкладці Автопрофіль.')).toBeTruthy()
+      expect(screen.getByText('Ще немає залогованих сесій.')).toBeTruthy()
     },
   )
 
@@ -531,8 +531,8 @@ it('"Фото" (Photos) tab renders without throwing', async () => {
       // 45-minute draft can legitimately crowd out an isolation goal
       // exercise like Barbell Curl in favor of higher-priority compounds --
       // this test is about the card's UI content, not time-crunch cutting.
-      fireEvent.change(await screen.findByLabelText('Minutes available today'), { target: { value: '300' } })
-      fireEvent.click(screen.getByRole('button', { name: 'Assemble my session' }))
+      fireEvent.change(await screen.findByLabelText('Хвилин доступно сьогодні'), { target: { value: '300' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Зібрати мою сесію' }))
 
       expect(await screen.findAllByText('Reps')).not.toHaveLength(0)
       expect(screen.getAllByText('Weight').length).toBeGreaterThan(0)
@@ -540,7 +540,7 @@ it('"Фото" (Photos) tab renders without throwing', async () => {
 
       // Opening the card's detail modal shows the fuller history section too.
       fireEvent.click(screen.getByText('Barbell Curl'))
-      expect(await screen.findByText(/History \(1 session/)).toBeTruthy()
+      expect(await screen.findByText(/Історія \(1 сесій/)).toBeTruthy()
     },
   )
 
@@ -569,7 +569,7 @@ it('"Фото" (Photos) tab renders without throwing', async () => {
     }
     renderApp(seedWithHeldLogs)
     fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Assemble my session' }))
-    expect(await screen.findByText(/Deload suggested/)).toBeTruthy()
+    fireEvent.click(await screen.findByRole('button', { name: 'Зібрати мою сесію' }))
+    expect(await screen.findByText(/Рекомендовано розвантаження/)).toBeTruthy()
   })
 })

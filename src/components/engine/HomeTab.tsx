@@ -3,11 +3,12 @@ import { getActiveGoalAndBlock, countSessionsInBlock } from '../../application/a
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { mostRecentTopSet } from '../../application/sessionPrescription'
 import { getExerciseById } from '../../domain/exerciseLibrary/exerciseLibrary'
+import { getMuscleGroup } from '../../domain/muscles/muscleTaxonomy'
 
 const RENEWAL_MESSAGES: Record<GoalRenewalReason, string> = {
-  deadlinePassed: 'Your goal’s deadline has passed.',
-  targetMet: 'You hit your target!',
-  focusMuscleInjured: 'Your focus muscle is marked as injured.',
+  deadlinePassed: 'Дедлайн вашої цілі минув.',
+  targetMet: 'Ви досягли цілі!',
+  focusMuscleInjured: 'Вашу фокус-групу м’язів позначено як травмовану.',
 }
 
 /**
@@ -23,7 +24,7 @@ export function HomeTab({ onViewPlan, onGoToLog }: { onViewPlan: () => void; onG
     return (
       <section className="panel-grid">
         <article className="card">
-          <p className="muted">Loading…</p>
+          <p className="muted">Завантаження…</p>
         </article>
       </section>
     )
@@ -46,32 +47,32 @@ export function HomeTab({ onViewPlan, onGoToLog }: { onViewPlan: () => void; onG
   return (
     <section className="panel-grid">
       <article className="card card-primary">
-        <h2>Next Session</h2>
+        <h2>Наступна сесія</h2>
         {!state.profile ? (
-          <p>Set up your profile first, on the Автопрофіль tab.</p>
+          <p>Спершу налаштуйте профіль на вкладці Автопрофіль.</p>
         ) : !active ? (
-          <p>No active goal yet. Create one on the Автопрофіль tab to start training.</p>
+          <p>Ще немає активної цілі. Створіть її на вкладці Автопрофіль, щоб почати тренування.</p>
         ) : renewalReason ? (
           <>
             <p className="note">{RENEWAL_MESSAGES[renewalReason]}</p>
-            <p className="muted">Set your next goal on the Автопрофіль tab.</p>
+            <p className="muted">Встановіть наступну ціль на вкладці Автопрофіль.</p>
           </>
         ) : (
           <>
             <p className="next-session-title">{getExerciseById(active.goal.exerciseId)?.nameEn ?? active.goal.exerciseId}</p>
             <p>
-              Focus: <strong>{active.block.focusMuscle}</strong> | Target:{' '}
-              <strong>{active.goal.targetWeightKg}kg</strong> by {active.goal.deadline.slice(0, 10)}
+              Фокус: <strong>{getMuscleGroup(active.block.focusMuscle).labelUk}</strong> | Ціль:{' '}
+              <strong>{active.goal.targetWeightKg}кг</strong> до {active.goal.deadline.slice(0, 10)}
             </p>
             <p>
-              Sessions logged this block: <strong>{sessionsInBlock}</strong>
+              Залоговано сесій у цьому блоці: <strong>{sessionsInBlock}</strong>
             </p>
             <div className="action-row">
               <button type="button" onClick={onViewPlan}>
-                View Plan
+                Переглянути план
               </button>
               <button type="button" onClick={onGoToLog}>
-                Finish / Log Session
+                Завершити / залогувати сесію
               </button>
             </div>
           </>
@@ -83,18 +84,18 @@ export function HomeTab({ onViewPlan, onGoToLog }: { onViewPlan: () => void; onG
         {lastWorkout ? (
           <>
             <p className="next-session-title">{new Date(lastWorkout.completedAt).toLocaleString()}</p>
-            <p>{lastWorkout.successful ? 'Successful' : 'Not successful'}</p>
+            <p>{lastWorkout.successful ? 'Успішно' : 'Неуспішно'}</p>
             <p className="muted">
-              Exercises:{' '}
+              Вправи:{' '}
               {lastWorkout.exerciseLogs
                 .filter((e) => !e.skipped)
                 .map((e) => getExerciseById(e.exerciseId)?.nameEn ?? e.exerciseId)
-                .join(', ') || 'None (all skipped)'}
+                .join(', ') || 'Немає (всі пропущені)'}
             </p>
             {lastWorkout.note ? <p className="note">{lastWorkout.note}</p> : null}
           </>
         ) : (
-          <p>No logged sessions yet.</p>
+          <p>Ще немає залогованих сесій.</p>
         )}
       </article>
     </section>

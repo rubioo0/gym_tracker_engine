@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useEngineState } from './useEngineState'
-import { MUSCLE_GROUPS, type MuscleGroupId } from '../../domain/muscles/muscleTaxonomy'
+import { MUSCLE_GROUPS, getMuscleGroup, type MuscleGroupId } from '../../domain/muscles/muscleTaxonomy'
 import type { DeficitLabel, ExperienceLevel, UserProfile } from '../../domain/profile/types'
 import { getExerciseById, getExercisesWithPrimaryMuscle } from '../../domain/exerciseLibrary/exerciseLibrary'
 import type { TrainingEmphasis } from '../../domain/goals/types'
@@ -37,7 +37,7 @@ export function SetupTab({ oldWorkoutLogs }: { oldWorkoutLogs: readonly OldAppWo
     return (
       <section className="panel-grid">
         <article className="card">
-          <p className="muted">Loading…</p>
+          <p className="muted">Завантаження…</p>
         </article>
       </section>
     )
@@ -78,14 +78,14 @@ export function SetupTab({ oldWorkoutLogs }: { oldWorkoutLogs: readonly OldAppWo
       try {
         parsed = JSON.parse(reader.result as string)
       } catch {
-        window.alert('Could not read this file as JSON.')
+        window.alert('Не вдалося прочитати цей файл як JSON.')
         return
       }
       if (!isPersistedState(parsed)) {
-        window.alert('This file does not look like a valid autonomous-engine backup.')
+        window.alert('Цей файл не схожий на дійсну резервну копію автономного модуля.')
         return
       }
-      if (window.confirm('Importing will replace all autonomous-engine data (Setup/Today only). Continue?')) {
+      if (window.confirm('Імпорт замінить усі дані автономного модуля (лише Автопрофіль/Сьогодні). Продовжити?')) {
         dispatch({ type: 'REPLACE_STATE', state: parsed })
       }
     }
@@ -96,10 +96,10 @@ export function SetupTab({ oldWorkoutLogs }: { oldWorkoutLogs: readonly OldAppWo
   return (
     <section className="panel-grid">
       <article className="card">
-        <h2>Profile</h2>
+        <h2>Профіль</h2>
         <div className="log-input-grid">
           <label className="stacked-field">
-            Sessions per week
+            Сесій на тиждень
             <NumberDraftInput
               min={1}
               value={profileDraft.sessionsPerWeek}
@@ -109,18 +109,18 @@ export function SetupTab({ oldWorkoutLogs }: { oldWorkoutLogs: readonly OldAppWo
             />
           </label>
           <label className="stacked-field">
-            Deficit
+            Дефіцит калорій
             <select
               value={profileDraft.deficitLabel}
               onChange={(e) => setProfileDraft({ ...profileDraft, deficitLabel: e.target.value as DeficitLabel })}
             >
-              <option value="notDieting">Not dieting</option>
-              <option value="smallDeficit">Small deficit</option>
-              <option value="bigDeficit">Big deficit</option>
+              <option value="notDieting">Без дієти</option>
+              <option value="smallDeficit">Малий дефіцит</option>
+              <option value="bigDeficit">Великий дефіцит</option>
             </select>
           </label>
           <label className="stacked-field">
-            Age (years, optional)
+            Вік (років, необов'язково)
             <NumberDraftInput
               optional
               value={profileDraft.ageYears}
@@ -128,7 +128,7 @@ export function SetupTab({ oldWorkoutLogs }: { oldWorkoutLogs: readonly OldAppWo
             />
           </label>
           <label className="stacked-field">
-            Bodyweight (kg, optional)
+            Вага тіла (кг, необов'язково)
             <NumberDraftInput
               optional
               value={profileDraft.bodyweightKg}
@@ -138,11 +138,11 @@ export function SetupTab({ oldWorkoutLogs }: { oldWorkoutLogs: readonly OldAppWo
         </div>
 
         <div className="template-group">
-          <h3>Injured muscles (excluded from training until un-marked — not medical advice)</h3>
+          <h3>Травмовані м'язи (виключаються з тренувань, поки не знято позначку — не медична порада)</h3>
           <div className="log-checkbox-grid">
             {MUSCLE_GROUPS.map((group) => (
               <label key={group.id} className="log-checkbox-field">
-                {group.labelEn}
+                {group.labelUk}
                 <input
                   type="checkbox"
                   checked={profileDraft.injuredMuscles.includes(group.id)}
@@ -155,19 +155,19 @@ export function SetupTab({ oldWorkoutLogs }: { oldWorkoutLogs: readonly OldAppWo
 
         <div className="action-row">
           <button type="button" onClick={saveProfile}>
-            Save profile
+            Зберегти профіль
           </button>
         </div>
       </article>
 
       {state.profile && (
         <article className="card">
-          <h2>Active goal</h2>
+          <h2>Активна ціль</h2>
           {activeGoal ? (
             <p className="next-session-title">
-              {getExerciseById(activeGoal.exerciseId)?.nameEn ?? activeGoal.exerciseId}: {activeGoal.startingWeightKg}kg
-              -&gt; {activeGoal.targetWeightKg}kg by {activeGoal.deadline.slice(0, 10)} (focus:{' '}
-              {activeBlock?.focusMuscle})
+              {getExerciseById(activeGoal.exerciseId)?.nameEn ?? activeGoal.exerciseId}: {activeGoal.startingWeightKg}кг
+              -&gt; {activeGoal.targetWeightKg}кг до {activeGoal.deadline.slice(0, 10)} (фокус:{' '}
+              {activeBlock ? getMuscleGroup(activeBlock.focusMuscle).labelUk : ''})
             </p>
           ) : (
             <GoalForm profile={state.profile} oldWorkoutLogs={oldWorkoutLogs} />
@@ -176,15 +176,17 @@ export function SetupTab({ oldWorkoutLogs }: { oldWorkoutLogs: readonly OldAppWo
       )}
 
       <article className="card">
-        <h2>Backup</h2>
-        <p className="muted">Separate from the app's main State Backup on the Data tab — this covers only Setup/Today data.</p>
+        <h2>Резервна копія</h2>
+        <p className="muted">
+          Окремо від основної резервної копії на вкладці Дані — тут лише дані Автопрофіль/Сьогодні.
+        </p>
         <div className="action-row">
           <button type="button" onClick={handleExport}>
-            Export data
+            Експортувати дані
           </button>
         </div>
         <label className="stacked-field inline-file-field">
-          Import data
+          Імпортувати дані
           <input type="file" accept="application/json" onChange={handleImportFile} />
         </label>
       </article>
@@ -272,11 +274,11 @@ function GoalForm({
   function submit() {
     const exercise = getExerciseById(exerciseId)
     if (!exercise) {
-      window.alert('Please pick an exercise.')
+      window.alert('Будь ласка, оберіть вправу.')
       return
     }
     if (!deadline) {
-      window.alert('Please pick a deadline.')
+      window.alert('Будь ласка, оберіть дедлайн.')
       return
     }
     const { goal, specializationBlock } = createGoalWithBlock(
@@ -301,27 +303,27 @@ function GoalForm({
   return (
     <div className="template-group">
       <p className="note">
-        Suggested next focus (least recently trained):{' '}
-        <strong>{MUSCLE_GROUPS.find((g) => g.id === suggestedFocusMuscle)?.labelEn ?? suggestedFocusMuscle}</strong>
+        Пропонований наступний фокус (найдавніше тренована група):{' '}
+        <strong>{getMuscleGroup(suggestedFocusMuscle).labelUk}</strong>
       </p>
       <label className="stacked-field">
-        Muscle group
+        Група м'язів
         <select value={muscleGroupId} onChange={(e) => handleMuscleChange(e.target.value as MuscleGroupId)}>
           {MUSCLE_GROUPS.map((group) => (
             <option key={group.id} value={group.id}>
-              {group.labelEn}
+              {group.labelUk}
             </option>
           ))}
         </select>
       </label>
       <p className="note">
-        Recommended exercise: <strong>{recommended?.nameEn ?? 'none found for this muscle'}</strong>
+        Рекомендована вправа: <strong>{recommended?.nameEn ?? 'не знайдено для цієї групи'}</strong>
       </p>
       {recommended ? (
         <ExerciseVisual exerciseId={recommended.id} exerciseName={recommended.nameEn} thumb />
       ) : null}
       <label className="log-checkbox-field">
-        Choose a different exercise manually
+        Обрати іншу вправу вручну
         <input
           type="checkbox"
           checked={manualOverride}
@@ -335,10 +337,10 @@ function GoalForm({
       </label>
       {manualOverride && (
         <label className="stacked-field">
-          Exercise
+          Вправа
           <select value={exerciseId} onChange={(e) => setExerciseId(e.target.value)}>
             {exercisesForMuscle.length === 0 ? (
-              <option value="">No exercises found for this muscle</option>
+              <option value="">Вправ для цієї групи не знайдено</option>
             ) : (
               exercisesForMuscle.map((ex) => (
                 <option key={ex.id} value={ex.id}>
@@ -350,16 +352,19 @@ function GoalForm({
         </label>
       )}
       <label className="stacked-field">
-        Experience with this muscle
+        Досвід з цією групою м'язів
         <select value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)}>
-          <option value="beginner">Beginner</option>
-          <option value="intermediate">Intermediate</option>
-          <option value="advanced">Advanced</option>
+          <option value="beginner">Початківець</option>
+          <option value="intermediate">Середній</option>
+          <option value="advanced">Просунутий</option>
         </select>
       </label>
       <div className="log-input-grid">
         <label className="stacked-field">
-          Starting weight (kg) — {suggestedStartingWeightKg !== null ? 'suggested from your logged history, adjustable' : 'no old-app history for this exercise, enter manually'}
+          Стартова вага (кг) —{' '}
+          {suggestedStartingWeightKg !== null
+            ? 'пропоновано з вашої історії, можна змінити'
+            : 'немає історії зі старої апки для цієї вправи, вкажіть вручну'}
           <NumberDraftInput
             value={startingWeightKg}
             onCommit={(n) => {
@@ -368,7 +373,7 @@ function GoalForm({
           />
         </label>
         <label className="stacked-field">
-          Duration (weeks) — suggested from experience level, adjustable
+          Тривалість (тижні) — пропоновано за рівнем досвіду, можна змінити
           <NumberDraftInput
             min={1}
             value={durationWeeks}
@@ -378,7 +383,7 @@ function GoalForm({
           />
         </label>
         <label className="stacked-field">
-          Target weight (kg) — suggested, adjustable
+          Цільова вага (кг) — пропоновано, можна змінити
           <NumberDraftInput
             value={targetWeightKg}
             onCommit={(n) => {
@@ -387,20 +392,20 @@ function GoalForm({
           />
         </label>
         <label className="stacked-field">
-          Deadline — suggested, adjustable
+          Дедлайн — пропоновано, можна змінити
           <input type="date" value={deadline} onChange={(e) => setDeadlineOverride(e.target.value)} />
         </label>
       </div>
       <label className="stacked-field">
-        Training emphasis
+        Акцент тренування
         <select value={trainingEmphasis} onChange={(e) => setTrainingEmphasis(e.target.value as TrainingEmphasis)}>
-          <option value="strength">Strength</option>
-          <option value="hypertrophy">Hypertrophy</option>
+          <option value="strength">Сила</option>
+          <option value="hypertrophy">Гіпертрофія</option>
         </select>
       </label>
       <div className="action-row">
         <button type="button" onClick={submit}>
-          Create goal
+          Створити ціль
         </button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { INITIAL_STATE, isPersistedState } from './state'
+import { gymMinutesFrom, INITIAL_STATE, isPersistedState } from './state'
 
 describe('isPersistedState', () => {
   it('accepts the initial state shape', () => {
@@ -59,5 +59,19 @@ describe('isPersistedState', () => {
       workoutLogs: [],
     }
     expect(isPersistedState({ ...base, confirmedSessionInputs: 'not-an-object' })).toBe(false)
+  })
+})
+
+describe('gymMinutesFrom', () => {
+  it('subtracts pool minutes from the total available minutes', () => {
+    expect(gymMinutesFrom({ availableMinutes: 60, noGymToday: false, poolMinutes: 20 })).toBe(40)
+  })
+
+  it('defaults to the full available minutes when poolMinutes is absent (older persisted state)', () => {
+    expect(gymMinutesFrom({ availableMinutes: 45, noGymToday: false })).toBe(45)
+  })
+
+  it('clamps at 0 rather than going negative when poolMinutes exceeds availableMinutes', () => {
+    expect(gymMinutesFrom({ availableMinutes: 30, noGymToday: false, poolMinutes: 45 })).toBe(0)
   })
 })

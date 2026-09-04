@@ -48,6 +48,16 @@ export interface ConfirmedSessionInputs {
    * showing a nonsense number.
    */
   confirmedAt?: string
+  /**
+   * How many of `availableMinutes` go to the pool rather than the gym --
+   * item 3 from real-usage feedback (auto-split time between gym and
+   * pool). The gym-exercise time budget passed to `assembleTodaysSession`
+   * is `availableMinutes - poolMinutes`, computed identically on both
+   * "План сесії" and "Завершити" so they never assemble different
+   * sessions from the same confirmed inputs. Optional, defaults to 0 when
+   * absent (older persisted state, fixtures).
+   */
+  poolMinutes?: number
 }
 
 export interface PersistedState {
@@ -56,6 +66,11 @@ export interface PersistedState {
   specializationBlocks: SpecializationBlock[]
   workoutLogs: WorkoutLog[]
   confirmedSessionInputs: ConfirmedSessionInputs | null
+}
+
+/** Gym-exercise time budget after subtracting pool time -- the single source of truth both "План сесії" and "Завершити" use so they never assemble different sessions from the same confirmed inputs. */
+export function gymMinutesFrom(inputs: ConfirmedSessionInputs): number {
+  return Math.max(0, inputs.availableMinutes - (inputs.poolMinutes ?? 0))
 }
 
 export const INITIAL_STATE: PersistedState = {

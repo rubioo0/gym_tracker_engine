@@ -3,6 +3,7 @@ import { useEngineState } from './useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock, workoutLogsInBlock } from '../../application/activeGoal'
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
+import { gymMinutesFrom } from '../../application/state'
 import { prescribeSession, mostRecentTopSet, shouldDeloadGoalExercise } from '../../application/sessionPrescription'
 import { recentExerciseHistory } from '../../application/exerciseHistory'
 import { getExerciseById, isPerHandEquipment } from '../../domain/exerciseLibrary/exerciseLibrary'
@@ -107,6 +108,12 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
   // only when they came here without ever visiting that tab first.
   const effectiveNoGymToday = state.confirmedSessionInputs?.noGymToday ?? noGymToday
   const effectiveAvailableMinutes = state.confirmedSessionInputs?.availableMinutes ?? GENEROUS_MINUTES_FOR_LOGGING
+  const effectivePoolMinutes = state.confirmedSessionInputs?.poolMinutes ?? 0
+  // Same gym/pool split math as План сесії (gymMinutesFrom), so this screen
+  // never assembles a different session from the same confirmed inputs.
+  const effectiveGymMinutes = state.confirmedSessionInputs
+    ? gymMinutesFrom(state.confirmedSessionInputs)
+    : effectiveAvailableMinutes
 
   const completedSessionsInBlock = countSessionsInBlock(state.workoutLogs, active.block)
   const slots = assembleTodaysSession({
@@ -116,7 +123,7 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
     sessionsPerWeek: state.profile.sessionsPerWeek,
     completedSessionsInBlock,
     noGymToday: effectiveNoGymToday,
-    availableMinutes: effectiveAvailableMinutes,
+    availableMinutes: effectiveGymMinutes,
   })
 
   const deloadGoalExercise = shouldDeloadGoalExercise(state.workoutLogs, blockWorkoutLogs, active.block.focusMuscle, active.goal)
@@ -162,6 +169,7 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
       note: note || undefined,
       exerciseLogs: currentEdits,
       ...durationFields,
+      ...(effectivePoolMinutes ? { poolMinutes: effectivePoolMinutes } : {}),
     }
     dispatch({ type: 'LOG_WORKOUT', workoutLog })
     setEdits(null)
@@ -194,6 +202,7 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
             {effectiveNoGymToday ? ', без залу' : ''}).
           </p>
         ) : null}
+        {effectivePoolMinutes ? <p className="muted">🏊 {effectivePoolMinutes} хв басейн</p> : null}
 
         {state.confirmedSessionInputs?.confirmedAt ? (
           <label className="stacked-field inline-field">

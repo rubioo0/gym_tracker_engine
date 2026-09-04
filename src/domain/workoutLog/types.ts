@@ -54,4 +54,12 @@ export interface WorkoutLog {
   startedAt?: string
   deductedMinutes?: number
   activeMinutes?: number
+  /**
+   * How many minutes of this session's confirmed time budget went to the
+   * pool rather than the gym (item 3 from real-usage feedback — auto-split
+   * time between gym and pool). Copied from `ConfirmedSessionInputs.poolMinutes`
+   * at log time so it survives that field being cleared on LOG_WORKOUT.
+   * Omitted when zero/absent, same convention as the duration fields above.
+   */
+  poolMinutes?: number
 }

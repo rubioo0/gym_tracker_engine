@@ -3,6 +3,7 @@ import { useEngineState } from './useEngineState'
 import { getActiveGoalAndBlock, countSessionsInBlock, workoutLogsInBlock } from '../../application/activeGoal'
 import { checkGoalNeedsRenewal, type GoalRenewalReason } from '../../application/goalStatus'
 import { assembleTodaysSession } from '../../application/sessionOrchestration'
+import { gymMinutesFrom } from '../../application/state'
 import { mostRecentTopSet, prescribeSession, goalHeldStreak, shouldDeloadGoalExercise } from '../../application/sessionPrescription'
 import { recentExerciseHistory } from '../../application/exerciseHistory'
 import { isPerHandEquipment } from '../../domain/exerciseLibrary/exerciseLibrary'
@@ -37,6 +38,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
 
   const [editingInputs, setEditingInputs] = useState(false)
   const [draftMinutes, setDraftMinutes] = useState(state.confirmedSessionInputs?.availableMinutes ?? 45)
+  const [draftPoolMinutes, setDraftPoolMinutes] = useState(state.confirmedSessionInputs?.poolMinutes ?? 0)
   const [draftNoGym, setDraftNoGym] = useState(state.confirmedSessionInputs?.noGymToday ?? false)
   const [openSlotIndex, setOpenSlotIndex] = useState<number | null>(null)
   // UI-only advisory, not a loggable exercise -- deliberately outside
@@ -104,6 +106,16 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
               }}
             />
           </label>
+          <label className="stacked-field inline-field">
+            З цього — басейн (хв)
+            <NumberDraftInput
+              min={0}
+              value={draftPoolMinutes}
+              onCommit={(n) => {
+                if (n !== undefined) setDraftPoolMinutes(n)
+              }}
+            />
+          </label>
           <label className="log-checkbox-field inline-field">
             Сьогодні без залу
             <input type="checkbox" checked={draftNoGym} onChange={(e) => setDraftNoGym(e.target.checked)} />
@@ -114,7 +126,12 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
               onClick={() => {
                 dispatch({
                   type: 'CONFIRM_SESSION_INPUTS',
-                  inputs: { availableMinutes: draftMinutes, noGymToday: draftNoGym, confirmedAt: new Date().toISOString() },
+                  inputs: {
+                    availableMinutes: draftMinutes,
+                    poolMinutes: draftPoolMinutes,
+                    noGymToday: draftNoGym,
+                    confirmedAt: new Date().toISOString(),
+                  },
                 })
                 setEditingInputs(false)
               }}
@@ -127,7 +144,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
     )
   }
 
-  const { availableMinutes, noGymToday } = state.confirmedSessionInputs
+  const { noGymToday, poolMinutes } = state.confirmedSessionInputs
   const completedSessionsInBlock = countSessionsInBlock(state.workoutLogs, active.block)
   const slots = assembleTodaysSession({
     focusMuscle: active.block.focusMuscle,
@@ -136,7 +153,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
     sessionsPerWeek: state.profile.sessionsPerWeek,
     completedSessionsInBlock,
     noGymToday,
-    availableMinutes,
+    availableMinutes: gymMinutesFrom(state.confirmedSessionInputs),
   })
   // Deload check needs the FULL workout history for accurate ACWR windows
   // (physical fatigue doesn't reset at a block boundary) alongside the
@@ -177,6 +194,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
           </button>
         </div>
         <h2>Сьогоднішня сесія — фокус: {getMuscleGroup(active.block.focusMuscle).labelUk}</h2>
+        {poolMinutes ? <p className="muted">🏊 {poolMinutes} хв басейн (не входить у бюджет вправ у залі)</p> : null}
         {deloadGoalExercise ? (
           <p className="note">
             ⚠️ Рекомендовано розвантаження для цільової вправи — перевантаження (ACWR) або застій 2+ сесії. Прогресію

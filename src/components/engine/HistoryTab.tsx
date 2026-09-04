@@ -69,6 +69,7 @@ export function HistoryTab() {
                       ⏱ {log.activeMinutes} хв{log.deductedMinutes ? ` (−${log.deductedMinutes} хв інше)` : ''}
                     </div>
                   ) : null}
+                  {log.poolMinutes ? <div className="muted">🏊 {log.poolMinutes} хв басейн</div> : null}
                   {log.note ? <div className="note">{log.note}</div> : null}
                 </div>
 

@@ -510,6 +510,34 @@ describe('App smoke test', () => {
   )
 
   it(
+    'План сесії splits available time between gym and pool (item 3), carries the pool note through ' +
+      'to Завершити and Історія, and Завершити assembles against the same reduced gym budget',
+    async () => {
+      renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL)
+
+      fireEvent.click(screen.getByRole('button', { name: 'План сесії' }))
+      fireEvent.change(await screen.findByLabelText('Хвилин доступно сьогодні'), { target: { value: '300' } })
+      fireEvent.change(screen.getByLabelText('З цього — басейн (хв)'), { target: { value: '290' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Зібрати мою сесію' }))
+
+      expect(await screen.findByText('🏊 290 хв басейн (не входить у бюджет вправ у залі)')).toBeTruthy()
+      // Only a 10-minute gym budget remains (300 - 290) -- far too little
+      // to fit the same session a 300-minute budget would assemble,
+      // proving the pool split actually reached assembleTodaysSession
+      // rather than being display-only.
+      const poolCrowdedCount = screen.getAllByRole('listitem').length
+      expect(poolCrowdedCount).toBeLessThan(3)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Перейти до Завершити' }))
+      expect(await screen.findByText('🏊 290 хв басейн')).toBeTruthy()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Завершити тренування' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Історія' }))
+      expect(await screen.findByText('🏊 290 хв басейн')).toBeTruthy()
+    },
+  )
+
+  it(
     '"Reset All Data" (Дані tab) actually erases the engine\'s data too, not just the old app\'s -- ' +
       'the exact regression reported: "I wanted to erase all data but noticed it does not work"',
     async () => {

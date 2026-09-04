@@ -41,4 +41,17 @@ export interface WorkoutLog {
    * success flag: stays manual". */
   successful: boolean
   note?: string
+  /**
+   * Duration tracking (item 2 from real-usage feedback): `startedAt` is
+   * copied from `ConfirmedSessionInputs.confirmedAt` at log time,
+   * `deductedMinutes` is whatever non-training time the user subtracted
+   * (bathroom break, chatting, etc.) on the finish screen, and
+   * `activeMinutes` is the resulting `completedAt - startedAt` minus that
+   * deduction. All three are omitted together when there was no captured
+   * start time (e.g. logging without ever visiting "План сесії" first) —
+   * there is deliberately no way to have one without the others.
+   */
+  startedAt?: string
+  deductedMinutes?: number
+  activeMinutes?: number
 }

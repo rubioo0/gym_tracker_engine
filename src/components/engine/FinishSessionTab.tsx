@@ -49,6 +49,13 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
   const [note, setNote] = useState('')
   const [edits, setEdits] = useState<EditableExerciseLog[] | null>(null)
   const [justFinished, setJustFinished] = useState(false)
+  // Non-training time to subtract from elapsed session time (bathroom
+  // break, chatting, etc. -- item 2 from real-usage feedback: "я можу з
+  // кимось говорити... для цього додати модалку перед сабмітом типу
+  // додатковий час... і я пишу наприклад 20 хв"). Only meaningful when a
+  // start time was actually captured (confirmedSessionInputs.confirmedAt) --
+  // see finish() below for the graceful no-start-time fallback.
+  const [deductedMinutes, setDeductedMinutes] = useState(0)
 
   if (!loaded) {
     return (
@@ -136,17 +143,31 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
   }
 
   function finish() {
+    const startedAt = state.confirmedSessionInputs?.confirmedAt
+    // Duration is only computed when a real start time was captured (i.e.
+    // the user actually visited "План сесії" and confirmed a plan there)
+    // -- otherwise startedAt/deductedMinutes/activeMinutes are all omitted
+    // together, not filled in with a nonsense number.
+    const durationFields = startedAt
+      ? {
+          startedAt,
+          deductedMinutes,
+          activeMinutes: Math.max(0, Math.round((new Date().getTime() - new Date(startedAt).getTime()) / 60000) - deductedMinutes),
+        }
+      : {}
     const workoutLog: WorkoutLog = {
       id: crypto.randomUUID(),
       completedAt: new Date().toISOString(),
       successful,
       note: note || undefined,
       exerciseLogs: currentEdits,
+      ...durationFields,
     }
     dispatch({ type: 'LOG_WORKOUT', workoutLog })
     setEdits(null)
     setSuccessful(true)
     setNote('')
+    setDeductedMinutes(0)
     setJustFinished(true)
     // Matches the old app's handleSubmitLog, which navigated to Home right
     // after logging — onFinished is optional so the component still works
@@ -172,7 +193,22 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
             Використовується сьогоднішній план з "План сесії" ({effectiveAvailableMinutes} хв
             {effectiveNoGymToday ? ', без залу' : ''}).
           </p>
-        ) : (
+        ) : null}
+
+        {state.confirmedSessionInputs?.confirmedAt ? (
+          <label className="stacked-field inline-field">
+            Додатковий нетренувальний час (хв) — наприклад, туалет чи розмова
+            <NumberDraftInput
+              min={0}
+              value={deductedMinutes}
+              onCommit={(n) => {
+                if (n !== undefined) setDeductedMinutes(n)
+              }}
+            />
+          </label>
+        ) : null}
+
+        {!state.confirmedSessionInputs ? (
           <label className="log-checkbox-field inline-field">
             Сьогодні без залу
             <input
@@ -185,7 +221,7 @@ export function FinishSessionTab({ onFinished }: { onFinished?: () => void }) {
               }}
             />
           </label>
-        )}
+        ) : null}
 
         {currentEdits.map((log) => {
           const exercise = getExerciseById(log.exerciseId)

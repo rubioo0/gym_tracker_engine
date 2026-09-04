@@ -64,6 +64,11 @@ export function HistoryTab() {
                 <div>
                   <strong>{new Date(log.completedAt).toLocaleString()}</strong>
                   <div className="muted">{log.successful ? 'Успішно' : 'Неуспішно'}</div>
+                  {typeof log.activeMinutes === 'number' ? (
+                    <div className="muted">
+                      ⏱ {log.activeMinutes} хв{log.deductedMinutes ? ` (−${log.deductedMinutes} хв інше)` : ''}
+                    </div>
+                  ) : null}
                   {log.note ? <div className="note">{log.note}</div> : null}
                 </div>
 

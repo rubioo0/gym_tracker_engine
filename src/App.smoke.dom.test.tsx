@@ -473,6 +473,43 @@ describe('App smoke test', () => {
   })
 
   it(
+    'Завершити computes session duration from when the plan was confirmed on План сесії, minus deducted ' +
+      'non-training time, and shows it in Історія (item 2: "додатковий час... і я пишу наприклад 20 хв")',
+    async () => {
+      const fortyMinutesAgo = new Date(Date.now() - 40 * 60 * 1000).toISOString()
+      const seedState: PersistedState = {
+        ...SEEDED_STATE_WITH_ACTIVE_GOAL,
+        confirmedSessionInputs: { availableMinutes: 300, noGymToday: false, confirmedAt: fortyMinutesAgo },
+      }
+      renderApp(seedState)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Завершити' }))
+      const deductInput = await screen.findByLabelText(/Додатковий нетренувальний час/)
+      fireEvent.change(deductInput, { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Завершити тренування' }))
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Історія' }))
+      // ~40 min elapsed since confirmedAt, minus 10 deducted -> 30.
+      expect(await screen.findByText('⏱ 30 хв (−10 хв інше)')).toBeTruthy()
+    },
+  )
+
+  it(
+    'Завершити logs no duration fields at all when there was no captured start time -- graceful fallback, ' +
+      'not a crash or a nonsense number',
+    async () => {
+      renderApp(SEEDED_STATE_WITH_ACTIVE_GOAL) // confirmedSessionInputs is null -- never visited План сесії
+
+      fireEvent.click(screen.getByRole('button', { name: 'Завершити' }))
+      expect(screen.queryByLabelText(/Додатковий нетренувальний час/)).toBeNull()
+      fireEvent.click(await screen.findByRole('button', { name: 'Завершити тренування' }))
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Історія' }))
+      expect(screen.queryByText(/⏱/)).toBeNull()
+    },
+  )
+
+  it(
     '"Reset All Data" (Дані tab) actually erases the engine\'s data too, not just the old app\'s -- ' +
       'the exact regression reported: "I wanted to erase all data but noticed it does not work"',
     async () => {

@@ -38,6 +38,16 @@ import type { WorkoutLog } from '../domain/workoutLog/types'
 export interface ConfirmedSessionInputs {
   availableMinutes: number
   noGymToday: boolean
+  /**
+   * When the user confirmed this plan on "План сесії" -- the session's
+   * real start time, used by FinishSessionTab to compute actual training
+   * duration (minus any non-training time the user deducts before
+   * submitting). Optional so older persisted/imported state and existing
+   * fixtures without it still validate; its absence is exactly the signal
+   * FinishSessionTab uses to skip duration tracking gracefully rather than
+   * showing a nonsense number.
+   */
+  confirmedAt?: string
 }
 
 export interface PersistedState {

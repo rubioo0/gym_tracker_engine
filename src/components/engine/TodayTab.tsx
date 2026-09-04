@@ -114,7 +114,7 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
               onClick={() => {
                 dispatch({
                   type: 'CONFIRM_SESSION_INPUTS',
-                  inputs: { availableMinutes: draftMinutes, noGymToday: draftNoGym },
+                  inputs: { availableMinutes: draftMinutes, noGymToday: draftNoGym, confirmedAt: new Date().toISOString() },
                 })
                 setEditingInputs(false)
               }}

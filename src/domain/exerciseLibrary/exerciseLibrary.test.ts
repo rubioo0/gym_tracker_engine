@@ -40,6 +40,23 @@ describe('EXERCISE_LIBRARY', () => {
     }
   })
 
+  // Regression guard, added after longTermSimulation.test.ts surfaced that
+  // rear_delts and obliques -- valid MuscleGroupIds with their own
+  // volume-landmark data -- had zero exercises tagged with either as a
+  // primary muscle anywhere in the library, so no user could ever have
+  // them scheduled by sessionOrchestration.ts's exercise selection
+  // (selectPrimaryAndAccessories always found nothing, silently skipped).
+  // Root cause: exercises literally named "Rear Delt Raise"/"Reverse
+  // Flyes"/"Face Pull" and "Oblique Crunches"/"Side Bend"/"Russian Twist"
+  // were mistagged as front_delts/abs respectively -- fixed by retagging
+  // those specific, unambiguous cases (item 11 from real-usage feedback).
+  it('every muscle group has at least one exercise with it as a primary muscle', () => {
+    for (const group of MUSCLE_GROUPS) {
+      const count = EXERCISE_LIBRARY.filter((ex) => ex.primaryMuscles.includes(group.id)).length
+      expect(count).toBeGreaterThan(0)
+    }
+  })
+
   // Every distinct exercise name found in gym_tracker/src/data/seed.ts as of
   // the Phase 0 audit (2026-08-15) — see Phase 0 verification step 4 in the
   // plan doc. Resolved via the hand-reviewed alias table (oldAppAliases.ts),

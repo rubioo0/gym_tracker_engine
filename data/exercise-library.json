@@ -1488,7 +1488,7 @@
     "equipment": "barbell",
     "mechanic": "compound",
     "primaryMuscles": [
-      "front_delts"
+      "rear_delts"
     ],
     "secondaryMuscles": [
       "biceps",
@@ -1650,7 +1650,7 @@
     "equipment": "barbell",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "abs"
+      "obliques"
     ],
     "secondaryMuscles": [
       "back"
@@ -2199,7 +2199,7 @@
     "equipment": "dumbbell",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "front_delts"
+      "rear_delts"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -2642,7 +2642,7 @@
     "equipment": "cable",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "abs"
+      "obliques"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -3377,7 +3377,7 @@
     "equipment": "cable",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "front_delts"
+      "rear_delts"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -3492,7 +3492,7 @@
     "equipment": "cable",
     "mechanic": "compound",
     "primaryMuscles": [
-      "abs"
+      "obliques"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -5516,7 +5516,7 @@
     "equipment": "body only",
     "mechanic": "compound",
     "primaryMuscles": [
-      "abs"
+      "obliques"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -6730,7 +6730,7 @@
     "equipment": "dumbbell",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "abs"
+      "obliques"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -7262,7 +7262,7 @@
     "equipment": "cable",
     "mechanic": "compound",
     "primaryMuscles": [
-      "front_delts"
+      "rear_delts"
     ],
     "secondaryMuscles": [
       "back"
@@ -10647,7 +10647,7 @@
     "equipment": "cable",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "abs"
+      "obliques"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -12182,7 +12182,7 @@
     "equipment": "dumbbell",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "front_delts"
+      "rear_delts"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -12888,7 +12888,7 @@
     "equipment": "body only",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "abs"
+      "obliques"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -12914,7 +12914,7 @@
     "equipment": "body only",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "abs"
+      "obliques"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -13077,7 +13077,7 @@
     "equipment": "cable",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "abs"
+      "obliques"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -15951,7 +15951,7 @@
     "equipment": "dumbbell",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "front_delts"
+      "rear_delts"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -15981,7 +15981,7 @@
     "equipment": "dumbbell",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "front_delts"
+      "rear_delts"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -16626,7 +16626,7 @@
     "equipment": "body only",
     "mechanic": "compound",
     "primaryMuscles": [
-      "abs"
+      "obliques"
     ],
     "secondaryMuscles": [
       "back"
@@ -16877,7 +16877,7 @@
     "equipment": "dumbbell",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "front_delts"
+      "rear_delts"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -18690,7 +18690,7 @@
     "equipment": "other",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "front_delts"
+      "rear_delts"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []
@@ -20356,7 +20356,7 @@
     "equipment": "cable",
     "mechanic": "compound",
     "primaryMuscles": [
-      "abs"
+      "obliques"
     ],
     "secondaryMuscles": [
       "front_delts"
@@ -22442,7 +22442,7 @@
     "equipment": "exercise ball",
     "mechanic": "isolation",
     "primaryMuscles": [
-      "abs"
+      "obliques"
     ],
     "secondaryMuscles": [],
     "unmappedMuscles": []

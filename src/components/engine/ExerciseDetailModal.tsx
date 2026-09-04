@@ -82,7 +82,7 @@ export function ExerciseDetailModal({
         </header>
 
         <div className="exercise-modal-layout">
-          <ExerciseVisual exerciseId={exercise.id} exerciseName={exercise.nameEn} />
+          <ExerciseVisual exerciseId={exercise.id} exerciseName={exercise.nameEn} editable />
 
           <div className="exercise-details-stack">
             <div className="exercise-details-grid">

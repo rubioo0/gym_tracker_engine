@@ -4,31 +4,12 @@ import ReactMarkdown from 'react-markdown'
 import { deletePhoto, loadAllPhotos, savePhoto } from '../../services/photoStorage'
 import type { ProgressPhoto } from '../../services/photoStorage'
 import { analyzeProgressPhotos } from '../../services/geminiService'
+import { resizeImage } from '../../services/imageResize'
 import './ProgressPhotos.css'
 
 interface ProgressPhotosProps {
   apiKey: string
   model: string
-}
-
-function resizeImage(file: File, maxSize = 1024): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      const canvas = document.createElement('canvas')
-      const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1)
-      canvas.width = Math.round(img.width * ratio)
-      canvas.height = Math.round(img.height * ratio)
-      const ctx = canvas.getContext('2d')
-      if (!ctx) { resolve(canvas.toDataURL('image/jpeg', 0.85)); return }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-      resolve(canvas.toDataURL('image/jpeg', 0.85))
-    }
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Не вдалось прочитати зображення')) }
-    img.src = url
-  })
 }
 
 function formatPhotoDate(iso: string): string {

@@ -20,8 +20,25 @@
 
 .exercise-visual-thumb .exercise-visual-flip,
 .exercise-visual-thumb .exercise-visual-media,
-.exercise-visual-thumb .exercise-visual-placeholder {
+.exercise-visual-thumb .exercise-visual-placeholder,
+.exercise-visual-thumb .exercise-visual-photo {
   min-height: 140px;
+}
+
+/* A user-captured equipment photo (item 4) -- fills the same box the stock flip/placeholder use, but as a single static image, not the 2-frame animation. Fixed height (not 100%) since the parent's height comes only from min-height, which percentage heights can't reliably resolve against. */
+.exercise-visual-photo {
+  display: block;
+  width: 100%;
+  height: 250px;
+  object-fit: cover;
+}
+
+.exercise-visual-thumb .exercise-visual-photo {
+  height: 140px;
+}
+
+.exercise-visual-capture {
+  padding: 0.5rem;
 }
 
 .exercise-visual-flip img {

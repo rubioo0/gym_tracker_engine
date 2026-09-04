@@ -39,6 +39,11 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
   const [draftMinutes, setDraftMinutes] = useState(state.confirmedSessionInputs?.availableMinutes ?? 45)
   const [draftNoGym, setDraftNoGym] = useState(state.confirmedSessionInputs?.noGymToday ?? false)
   const [openSlotIndex, setOpenSlotIndex] = useState<number | null>(null)
+  // UI-only advisory, not a loggable exercise -- deliberately outside
+  // assembleTodaysSession/prescribeSession (no time-budget or domain
+  // involvement) and not persisted, since nothing asked for it to be
+  // tracked over time. Resets on every remount, same as openSlotIndex.
+  const [warmupDone, setWarmupDone] = useState(false)
 
   if (!loaded) {
     return (
@@ -151,6 +156,20 @@ export function TodayTab({ onGoToFinish }: { onGoToFinish?: () => void }) {
 
   return (
     <section className="panel-grid">
+      {slots.length > 0 ? (
+        <article className="card">
+          <h2>🏃 Розминка (5-10 хв)</h2>
+          <p className="muted">
+            Перед тренуванням порадимо 5-10 хв легкого кардіо (бігова доріжка, велотренажер тощо), щоб розігріти
+            м'язи та суглоби. Не входить у бюджет часу вправ — це порада, не вправа для логування.
+          </p>
+          <label className="log-checkbox-field">
+            Розминку зроблено
+            <input type="checkbox" checked={warmupDone} onChange={(e) => setWarmupDone(e.target.checked)} />
+          </label>
+        </article>
+      ) : null}
+
       <article className="card card-wide">
         <div className="action-row">
           <button type="button" onClick={() => setEditingInputs(true)}>

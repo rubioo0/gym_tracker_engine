@@ -326,3 +326,10 @@ After the 5 phases above shipped, the user trained with the app twice for real a
 - `confirmedAt` was made optional rather than required specifically so this doubles as the "no start time" signal, and so existing test fixtures / previously-persisted state without it keep validating.
 - Files touched: `App.smoke.dom.test.tsx`, `application/state.ts`, `components/engine/FinishSessionTab.tsx`, `components/engine/HistoryTab.tsx`, `components/engine/TodayTab.tsx`, `domain/workoutLog/types.ts`.
 - Commit: `6b0d4e1`. Deploy: GitHub Actions run `33881502611`, confirmed live (spot-checked bundle `index-BzgH_xtm.js`, hash-identical to the local production build — new field label present).
+
+### 2026-09-04 — Phase 10: split available time between gym and pool (item 3)
+- **Added (new feature).** А "З цього — басейн (хв)" field next to minutes-available on План сесії; the gym-exercise time budget passed to `assembleTodaysSession` is now `availableMinutes - poolMinutes` (new `gymMinutesFrom` helper in `application/state.ts`, unit tested including the absent-field and pool-exceeds-total boundary cases). Computed identically on План сесії and Завершити so they never assemble different sessions from the same confirmed inputs — same invariant Phase 9's duration tracking already relies on.
+- `poolMinutes` is copied onto the `WorkoutLog` at log time (mirrors Phase 9's `startedAt`/`deductedMinutes` pattern) so it survives `ConfirmedSessionInputs` being cleared on `LOG_WORKOUT`, and surfaces in Історія ("🏊 20 хв басейн") instead of being silently lost.
+- New DOM smoke test confirms a large pool allocation genuinely reaches session assembly (far fewer exercises than a full gym budget assembles), not just a display-only field.
+- Files touched: `App.smoke.dom.test.tsx`, `application/state.ts`(+test), `components/engine/FinishSessionTab.tsx`, `components/engine/HistoryTab.tsx`, `components/engine/TodayTab.tsx`, `domain/workoutLog/types.ts`.
+- Commit: `2b0194a`. Deploy: GitHub Actions run `33882285923`, confirmed live (spot-checked bundle `index-BAOR2WrU.js`, hash-identical to the local production build — new field label and pool note both present).
